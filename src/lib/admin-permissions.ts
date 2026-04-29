@@ -17,7 +17,6 @@ export type AdminModule =
     | 'CATEGORIES'
     | 'REVIEWS'
     | 'PRODUCTS'
-    | 'PLANS'
     | 'PARTNERS'
     | 'CLIENTS'
     | 'CLIENT_LEVELS'
@@ -45,7 +44,6 @@ type AdminAccessFlag =
     | 'canAccessCategories'
     | 'canAccessReviews'
     | 'canAccessProducts'
-    | 'canAccessPlans'
     | 'canAccessPartners'
     | 'canAccessClients'
     | 'canAccessClientLevels'
@@ -63,7 +61,6 @@ const ADMIN_ACCESS_SELECT: AdminAccessSelect = {
     canAccessCategories: true,
     canAccessReviews: true,
     canAccessProducts: true,
-    canAccessPlans: true,
     canAccessPartners: true,
     canAccessClients: true,
     canAccessClientLevels: true,
@@ -88,8 +85,6 @@ function moduleToAccessField(module: AdminModule): AdminAccessFlag | null {
             return 'canAccessReviews';
         case 'PRODUCTS':
             return 'canAccessProducts';
-        case 'PLANS':
-            return 'canAccessPlans';
 
         // ✅ IMPORTANTE:
         // Parceiros saiu do ADMIN (tenant) e agora pertence somente à PLATAFORMA.
@@ -227,7 +222,6 @@ const FALLBACK_ROUTES: ModuleRoute[] = [
     { module: 'APPOINTMENTS', href: '/admin/appointments' },
     { module: 'CATEGORIES', href: '/admin/categories' },
     { module: 'PRODUCTS', href: '/admin/products' },
-    { module: 'PLANS', href: '/admin/plans' },
 
     // ✅ PARTNERS REMOVIDO do fallback (agora é somente da PLATAFORMA)
 

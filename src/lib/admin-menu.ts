@@ -44,12 +44,6 @@ export const ADMIN_MENU: AdminMenuItem[] = [
         enabled: isEnabled('appointments'),
     },
     {
-        href: '/admin/plans',
-        label: 'Planos',
-        menuKey: 'plans',
-        enabled: isEnabled('plans'),
-    },
-    {
         href: '/admin/categories',
         label: 'Categorias',
         menuKey: 'categories',

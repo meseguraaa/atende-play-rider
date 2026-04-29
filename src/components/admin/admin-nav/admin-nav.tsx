@@ -42,7 +42,6 @@ type AdminAccessLike = Partial<
         | 'canAccessCategories'
         | 'canAccessReviews'
         | 'canAccessProducts'
-        | 'canAccessPlans'
         | 'canAccessPartners'
         | 'canAccessClients'
         | 'canAccessCommunication'
@@ -95,7 +94,6 @@ const ICON_BY_KEY: Record<
     faq: CircleHelp,
     faqReports: BarChart3,
     products: Package,
-    plans: Ticket,
 
     // ⚠️ Parceiros agora é PLATAFORMA, mas mantemos o ícone mapeado
     // caso o ADMIN_MENU ainda tenha a entrada (vamos filtrar na renderização).
@@ -129,7 +127,6 @@ const MENU_DISPLAY_ORDER: Record<string, number> = {
     categories: 50,
     services: 60,
     products: 70,
-    plans: 80,
     clients: 90,
     clientLevels: 100,
     communication: 101,
@@ -185,9 +182,6 @@ function mapAdminHref(link: (typeof ADMIN_MENU)[number]) {
     if (link.menuKey === 'clients')
         return link.href.replace('/clients', '/client');
 
-    // ✅ plans -> plan (singular)
-    if (link.menuKey === 'plans') return link.href;
-
     // ✅ client-levels -> client-level (singular)
     if (link.menuKey === 'clientLevels')
         return link.href.replace('/client-levels', '/client-level');
@@ -222,7 +216,6 @@ function buildOwnerAccess(): AdminAccessLike {
         canAccessCategories: true,
         canAccessReviews: true,
         canAccessProducts: true,
-        canAccessPlans: true,
         canAccessPartners: false,
         canAccessClients: true,
         canAccessCommunication: true,
