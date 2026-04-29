@@ -6,7 +6,6 @@ import { requireAdminForModuleApi } from '@/lib/admin-permissions';
 type PermissionsPayload = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
-    canAccessCheckout: boolean;
     canAccessAppointments: boolean;
     canAccessProfessionals: boolean;
     canAccessServices: boolean;
@@ -40,7 +39,6 @@ function normalizePermissions(
     return {
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
         canAccessReports: Boolean(partial?.canAccessReports ?? false),
-        canAccessCheckout: Boolean(partial?.canAccessCheckout ?? false),
         canAccessAppointments: Boolean(partial?.canAccessAppointments ?? true),
         canAccessProfessionals: Boolean(
             partial?.canAccessProfessionals ?? false
@@ -69,7 +67,6 @@ function sanitizePatchPermissions(
     const keys: (keyof PermissionsPayload)[] = [
         'canAccessDashboard',
         'canAccessReports',
-        'canAccessCheckout',
         'canAccessAppointments',
         'canAccessProfessionals',
         'canAccessServices',
@@ -114,10 +111,6 @@ function mergePermissions(params: {
             p.canAccessReports !== undefined
                 ? Boolean(p.canAccessReports)
                 : params.current.canAccessReports,
-        canAccessCheckout:
-            p.canAccessCheckout !== undefined
-                ? Boolean(p.canAccessCheckout)
-                : params.current.canAccessCheckout,
         canAccessAppointments:
             p.canAccessAppointments !== undefined
                 ? Boolean(p.canAccessAppointments)
@@ -267,7 +260,6 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                     id: true,
                     canAccessDashboard: true,
                     canAccessReports: true,
-                    canAccessCheckout: true,
                     canAccessAppointments: true,
                     canAccessProfessionals: true,
                     canAccessServices: true,
@@ -288,7 +280,6 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                 ? {
                       canAccessDashboard: !!currentAccess.canAccessDashboard,
                       canAccessReports: !!currentAccess.canAccessReports,
-                      canAccessCheckout: !!currentAccess.canAccessCheckout,
                       canAccessAppointments:
                           !!currentAccess.canAccessAppointments,
                       canAccessProfessionals:

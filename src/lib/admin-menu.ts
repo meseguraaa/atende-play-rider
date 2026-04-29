@@ -57,12 +57,6 @@ export const ADMIN_MENU: AdminMenuItem[] = [
         enabled: isEnabled('appointments'),
     },
     {
-        href: '/admin/checkout',
-        label: 'Checkout',
-        menuKey: 'checkout',
-        enabled: isEnabled('checkout'),
-    },
-    {
         href: '/admin/professionals',
         label: 'Profissionais',
         menuKey: 'professionals',

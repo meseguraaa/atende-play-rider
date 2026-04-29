@@ -12,7 +12,6 @@ import {
     Wallet,
     Users,
     CalendarCheck,
-    ShoppingCart,
     Tag,
     Settings,
     BarChart3,
@@ -40,7 +39,6 @@ type AdminAccessLike = Partial<
     Record<
         | 'canAccessDashboard'
         | 'canAccessReports'
-        | 'canAccessCheckout'
         | 'canAccessAppointments'
         | 'canAccessProfessionals'
         | 'canAccessServices'
@@ -95,7 +93,6 @@ const ICON_BY_KEY: Record<
     dashboard: LayoutDashboard,
     reports: BarChart3,
     appointments: CalendarCheck,
-    checkout: ShoppingCart,
     professionals: Scissors,
     services: ListChecks,
     categories: FolderTree,
@@ -124,13 +121,12 @@ const UNIT_COOKIE_NAME = 'admin_unit_context';
 const UNIT_ALL_VALUE = 'all';
 
 // ✅ Tenant Admin NÃO deve ver menu de Parceiros (agora é Plataforma/AtendePlay)
-const HIDDEN_TENANT_MENU_KEYS = new Set<string>(['partners']);
+const HIDDEN_TENANT_MENU_KEYS = new Set<string>(['partners', 'checkout']);
 
 // ✅ Ordem visual forçada no NAV
 const MENU_DISPLAY_ORDER: Record<string, number> = {
     dashboard: 10,
     appointments: 20,
-    checkout: 30,
     professionals: 40,
     categories: 50,
     services: 60,
@@ -232,7 +228,6 @@ function buildOwnerAccess(): AdminAccessLike {
     return {
         canAccessDashboard: true,
         canAccessReports: true,
-        canAccessCheckout: true,
         canAccessAppointments: true,
         canAccessProfessionals: true,
         canAccessServices: true,

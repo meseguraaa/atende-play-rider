@@ -11,7 +11,6 @@ export const dynamic = 'force-dynamic';
 type AdminAccessLike = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
-    canAccessCheckout: boolean;
     canAccessAppointments: boolean;
     canAccessProfessionals: boolean;
     canAccessServices: boolean;
@@ -93,7 +92,6 @@ export default async function AdminIndexPage() {
         select: {
             canAccessDashboard: true,
             canAccessReports: true,
-            canAccessCheckout: true,
             canAccessAppointments: true,
             canAccessProfessionals: true,
             canAccessServices: true,

@@ -74,7 +74,6 @@ type CardMachineUI = {
 type PermissionsUI = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
-    canAccessCheckout: boolean;
     canAccessAppointments: boolean;
     canAccessProfessionals: boolean;
     canAccessServices: boolean;
@@ -319,7 +318,6 @@ function normalizeAdminFromApi(a: AdminApi): AdminUI {
         permissions: {
             canAccessDashboard: !!a.permissions?.canAccessDashboard,
             canAccessReports: !!a.permissions?.canAccessReports,
-            canAccessCheckout: !!a.permissions?.canAccessCheckout,
             canAccessAppointments: !!a.permissions?.canAccessAppointments,
             canAccessProfessionals: !!a.permissions?.canAccessProfessionals,
             canAccessServices: !!a.permissions?.canAccessServices,
@@ -410,7 +408,6 @@ function buildAddressLineClient(input: {
 const PERMISSION_LABELS: Partial<Record<keyof PermissionsUI, string>> = {
     canAccessDashboard: 'Dashboard',
     canAccessReports: 'Relatórios',
-    canAccessCheckout: 'Checkout',
     canAccessAppointments: 'Agendamentos',
     canAccessProfessionals: 'Profissionais',
     canAccessServices: 'Serviços',
@@ -429,7 +426,6 @@ function clonePerms(p: PermissionsUI): PermissionsUI {
     return {
         canAccessDashboard: !!p.canAccessDashboard,
         canAccessReports: !!p.canAccessReports,
-        canAccessCheckout: !!p.canAccessCheckout,
         canAccessAppointments: !!p.canAccessAppointments,
         canAccessProfessionals: !!p.canAccessProfessionals,
         canAccessServices: !!p.canAccessServices,
@@ -1409,7 +1405,6 @@ export default function AdminSettingsClient() {
     const [newAdminPerms, setNewAdminPerms] = React.useState<PermissionsUI>({
         canAccessDashboard: true,
         canAccessReports: false,
-        canAccessCheckout: false,
         canAccessAppointments: true,
         canAccessProfessionals: false,
         canAccessServices: false,
@@ -1655,7 +1650,6 @@ export default function AdminSettingsClient() {
             setNewAdminPerms({
                 canAccessDashboard: true,
                 canAccessReports: false,
-                canAccessCheckout: false,
                 canAccessAppointments: true,
                 canAccessProfessionals: false,
                 canAccessServices: false,

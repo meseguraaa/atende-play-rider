@@ -28,7 +28,7 @@ type AdminAccessLike = {
     canAccessCommunication: boolean;
 };
 
-const HIDDEN_TENANT_MENU_KEYS = new Set<string>(['partners']);
+const HIDDEN_TENANT_MENU_KEYS = new Set<string>(['partners', 'checkout']);
 
 function getFirstAllowedEnabledHref(
     access: AdminAccessLike | null
@@ -175,15 +175,6 @@ export default async function AdminLayout({
             .map((u) => ({ id: u.id, name: u.name }));
     }
 
-    const pendingCheckoutsCount = 0;
-
-    const pendingRidesCount = await prisma.ride.count({
-        where: {
-            companyId,
-            status: 'DRAFT',
-        },
-    });
-
     return (
         <div className="min-h-screen bg-background-primary">
             <AdminPermissionToast />
@@ -192,8 +183,6 @@ export default async function AdminLayout({
                 adminAccess={adminAccess ?? undefined}
                 isOwner={isOwner}
                 unitOptions={unitOptions}
-                pendingCheckoutsCount={pendingCheckoutsCount}
-                pendingAppointmentsCount={pendingRidesCount}
             />
 
             <main className="pl-14">

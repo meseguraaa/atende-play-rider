@@ -29,8 +29,8 @@ export const metadata: Metadata = {
 
 type AdminFinancePageProps = {
     searchParams: Promise<{
-        month?: string; // yyyy-MM
-        unit?: string; // unitId (mantemos compat com "all", mas redireciona)
+        month?: string;
+        unit?: string;
     }>;
 };
 
@@ -63,15 +63,10 @@ function clampDayToMonth(day: number, monthDate: Date): number {
     return day;
 }
 
-/**
- * ✅ Auto-criação de despesas recorrentes ao entrar no mês:
- * - Busca recorrentes do mês anterior (mesma unidade)
- * - Cria no mês atual o que estiver faltando
- */
 async function ensureRecurringExpensesForMonth(args: {
     companyId: string;
     unitId: string;
-    monthDate: Date; // startOfMonth
+    monthDate: Date;
 }) {
     const { companyId, unitId, monthDate } = args;
 
@@ -175,10 +170,6 @@ async function ensureRecurringExpensesForMonth(args: {
     });
 }
 
-/* -------------------------------------------------------
- * Helpers: cálculo de ganhos e faturamento do mês
- * ------------------------------------------------------*/
-
 function safeNumber(v: unknown): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
@@ -190,14 +181,10 @@ export default async function AdminFinancePage({
     const session = await requireAdminForModule('FINANCE');
 
     const companyId = session.companyId;
-    if (!companyId) {
-        redirect('/admin');
-    }
+    if (!companyId) redirect('/admin');
 
     const userId = session.id;
-    if (!userId) {
-        redirect('/admin');
-    }
+    if (!userId) redirect('/admin');
 
     const canSeeAllUnits = !!(session as any)?.canSeeAllUnits;
 
@@ -259,7 +246,7 @@ export default async function AdminFinancePage({
 
         return (
             <AdminFinanceClient
-                scopeLabel={'Nenhuma unidade disponível'}
+                scopeLabel="Nenhuma unidade disponível"
                 monthLabel={monthLabel}
                 monthQuery={monthQuery}
                 summary={summary}
@@ -303,10 +290,8 @@ export default async function AdminFinancePage({
         monthDate: monthStart,
     });
 
-    const scopeLabel = (() => {
-        const found = units.find((u) => u.id === activeUnitId);
-        return found?.name ?? 'unidade selecionada';
-    })();
+    const scopeLabel =
+        units.find((u) => u.id === activeUnitId)?.name ?? 'unidade selecionada';
 
     const newExpenseDisabled = !activeUnitId;
 
@@ -315,9 +300,6 @@ export default async function AdminFinancePage({
         currency: 'BRL',
     });
 
-    /* -------------------------------------------------------
-     * DESPESAS
-     * ------------------------------------------------------*/
     const expensesDb = await prisma.expense.findMany({
         where: {
             companyId,
@@ -366,327 +348,40 @@ export default async function AdminFinancePage({
         return sum + Number(e.amount);
     }, 0);
 
-    /* -------------------------------------------------------
-     * CHECKOUTS DO MÊS
-     * ------------------------------------------------------*/
-    const checkedOutAppointmentsMonth = await prisma.appointment.findMany({
-        where: {
-            companyId,
-            unitId: activeUnitId,
-            checkedOutAt: { gte: monthStart, lte: monthEnd },
-            status: { not: 'CANCELED' },
-        },
-        select: {
-            professionalId: true,
-            cardFeeAmount: true,
-            netReceivedAmount: true,
-        },
-    });
+    /*
+     * Financeiro temporário:
+     * Checkout/Appointment foi removido do tenant admin por enquanto.
+     * Quando o financeiro novo nascer em cima de Rides/Orders, ligamos aqui.
+     */
+    const totalCardFeesNumber = 0;
+    const totalReceivedNetMonth = 0;
+    const totalReceivedNetYear = 0;
 
-    const totalCardFeesNumber = checkedOutAppointmentsMonth.reduce(
-        (sum, a) => sum + safeNumber(a.cardFeeAmount),
-        0
-    );
+    const servicesCommissionMonthNumber = 0;
+    const servicesCommissionYearNumber = 0;
 
-    const totalReceivedNetMonth = checkedOutAppointmentsMonth.reduce(
-        (sum, a) => sum + safeNumber(a.netReceivedAmount),
-        0
-    );
+    const productsCommissionMonthNumber = 0;
+    const productsCommissionYearNumber = 0;
 
-    const checkedOutAppointmentsYear = await prisma.appointment.findMany({
-        where: {
-            companyId,
-            unitId: activeUnitId,
-            checkedOutAt: { gte: yearStart, lte: yearEnd },
-            status: { not: 'CANCELED' },
-        },
-        select: {
-            professionalId: true,
-            cardFeeAmount: true,
-            netReceivedAmount: true,
-        },
-    });
-
-    const totalReceivedNetYear = checkedOutAppointmentsYear.reduce(
-        (sum, a) => sum + safeNumber(a.netReceivedAmount),
-        0
-    );
-
-    /* -------------------------------------------------------
-     * FATURAMENTO / COMISSÕES DO MÊS
-     *
-     * Regra final:
-     * - Faturamento líquido (box 1) = líquido recebido no mês - comissões
-     * - Despesas = só pagas
-     * - Lucro líquido = faturamento líquido - despesas
-     * - Cards dos profissionais = comissões por profissional
-     * ------------------------------------------------------*/
-
-    const professionalUnits = await prisma.professionalUnit.findMany({
-        where: {
-            companyId,
-            unitId: activeUnitId,
-            isActive: true,
-            professional: { isActive: true },
-        },
-        select: {
-            professional: { select: { id: true, name: true } },
-        },
-        orderBy: { createdAt: 'asc' },
-    });
-
-    const professionalsBase = professionalUnits
-        .map((x) => x.professional)
-        .filter(Boolean);
-
-    const professionalsById = new Map<string, { id: string; name: string }>();
-    for (const p of professionalsBase) {
-        if (!p?.id) continue;
-        professionalsById.set(p.id, { id: p.id, name: p.name });
-    }
-
-    // Serviços do mês via orders COMPLETED
-    const completedServiceOrders = await prisma.order.findMany({
-        where: {
-            companyId,
-            unitId: activeUnitId,
-            status: 'COMPLETED',
-            appointment: {
-                is: {
-                    checkedOutAt: { gte: monthStart, lte: monthEnd },
-                },
-            },
-        },
-        select: {
-            appointment: {
-                select: {
-                    professionalId: true,
-                    professionalPercentageAtTheTime: true,
-                },
-            },
-            items: {
-                where: {
-                    serviceId: { not: null },
-                },
-                select: {
-                    totalPrice: true,
-                    service: {
-                        select: {
-                            professionalPercentage: true,
-                        },
-                    },
-                },
-            },
-        },
-    });
-
-    let servicesCommissionMonthNumber = 0;
-    let servicesCommissionYearNumber = 0;
     const servicesEarningsByProfessional = new Map<string, number>();
-
-    for (const order of completedServiceOrders) {
-        const pctFromAppointment = safeNumber(
-            order.appointment?.professionalPercentageAtTheTime
-        );
-
-        const appointmentProfessionalId = String(
-            order.appointment?.professionalId ?? ''
-        ).trim();
-
-        for (const item of order.items) {
-            const itemTotal = safeNumber(item.totalPrice);
-
-            const pctFromService = safeNumber(
-                item.service?.professionalPercentage
-            );
-            const pct =
-                pctFromAppointment > 0 ? pctFromAppointment : pctFromService;
-
-            const commission =
-                itemTotal > 0 && pct > 0 ? (itemTotal * pct) / 100 : 0;
-
-            servicesCommissionMonthNumber += commission;
-
-            if (!appointmentProfessionalId) continue;
-
-            servicesEarningsByProfessional.set(
-                appointmentProfessionalId,
-                (servicesEarningsByProfessional.get(
-                    appointmentProfessionalId
-                ) ?? 0) + commission
-            );
-        }
-    }
-
-    const completedServiceOrdersYear = await prisma.order.findMany({
-        where: {
-            companyId,
-            unitId: activeUnitId,
-            status: 'COMPLETED',
-            appointment: {
-                is: {
-                    checkedOutAt: { gte: yearStart, lte: yearEnd },
-                },
-            },
-        },
-        select: {
-            appointment: {
-                select: {
-                    professionalId: true,
-                    professionalPercentageAtTheTime: true,
-                },
-            },
-            items: {
-                where: {
-                    serviceId: { not: null },
-                },
-                select: {
-                    totalPrice: true,
-                    service: {
-                        select: {
-                            professionalPercentage: true,
-                        },
-                    },
-                },
-            },
-        },
-    });
-
-    for (const order of completedServiceOrdersYear) {
-        const pctFromAppointment = safeNumber(
-            order.appointment?.professionalPercentageAtTheTime
-        );
-
-        for (const item of order.items) {
-            const itemTotal = safeNumber(item.totalPrice);
-
-            const pctFromService = safeNumber(
-                item.service?.professionalPercentage
-            );
-            const pct =
-                pctFromAppointment > 0 ? pctFromAppointment : pctFromService;
-
-            const commission =
-                itemTotal > 0 && pct > 0 ? (itemTotal * pct) / 100 : 0;
-
-            servicesCommissionYearNumber += commission;
-        }
-    }
-
-    // Produtos do mês via orders COMPLETED
-    const completedOrders = await prisma.order.findMany({
-        where: {
-            companyId,
-            unitId: activeUnitId,
-            status: 'COMPLETED',
-            appointment: {
-                is: {
-                    checkedOutAt: { gte: monthStart, lte: monthEnd },
-                },
-            },
-        },
-        select: { id: true },
-    });
-
-    const orderIds = completedOrders.map((o) => o.id);
-
-    let productsCommissionMonthNumber = 0;
-    let productsCommissionYearNumber = 0;
     const productsEarningsByProfessional = new Map<string, number>();
 
-    if (orderIds.length > 0) {
-        const productItems = await prisma.orderItem.findMany({
-            where: {
-                companyId,
-                orderId: { in: orderIds },
-                productId: { not: null },
-            },
-            select: {
-                professionalId: true,
-                totalPrice: true,
-                product: { select: { professionalPercentage: true } },
-            },
-        });
-
-        for (const it of productItems) {
-            const pid = String(it.professionalId ?? '').trim();
-            if (!pid) continue;
-
-            const total = safeNumber(it.totalPrice);
-            const pct = safeNumber(it.product?.professionalPercentage);
-
-            const commission = total > 0 && pct > 0 ? (total * pct) / 100 : 0;
-
-            productsCommissionMonthNumber += commission;
-
-            productsEarningsByProfessional.set(
-                pid,
-                (productsEarningsByProfessional.get(pid) ?? 0) + commission
-            );
-        }
-    }
-
-    const completedOrdersYear = await prisma.order.findMany({
-        where: {
-            companyId,
-            unitId: activeUnitId,
-            status: 'COMPLETED',
-            appointment: {
-                is: {
-                    checkedOutAt: { gte: yearStart, lte: yearEnd },
-                },
-            },
-        },
-        select: { id: true },
-    });
-
-    const orderIdsYear = completedOrdersYear.map((o) => o.id);
-
-    if (orderIdsYear.length > 0) {
-        const productItemsYear = await prisma.orderItem.findMany({
-            where: {
-                companyId,
-                orderId: { in: orderIdsYear },
-                productId: { not: null },
-            },
-            select: {
-                totalPrice: true,
-                product: { select: { professionalPercentage: true } },
-            },
-        });
-
-        for (const it of productItemsYear) {
-            const total = safeNumber(it.totalPrice);
-            const pct = safeNumber(it.product?.professionalPercentage);
-
-            const commission = total > 0 && pct > 0 ? (total * pct) / 100 : 0;
-
-            productsCommissionYearNumber += commission;
-        }
-    }
-
     const allProfessionalIds = new Set<string>([
-        ...Array.from(professionalsById.keys()),
         ...Array.from(servicesEarningsByProfessional.keys()),
         ...Array.from(productsEarningsByProfessional.keys()),
-        ...checkedOutAppointmentsMonth
-            .map((a) => String(a.professionalId ?? '').trim())
-            .filter(Boolean),
     ]);
 
     const professionalEarnings: ProfessionalMonthlyEarningsUI[] = Array.from(
         allProfessionalIds
     )
         .map((pid) => {
-            const base = professionalsById.get(pid);
-
             const services = servicesEarningsByProfessional.get(pid) ?? 0;
             const products = productsEarningsByProfessional.get(pid) ?? 0;
             const total = services + products;
 
             return {
                 professionalId: pid,
-                name: base?.name ?? 'Profissional',
+                name: 'Profissional',
                 servicesEarnings: currencyFormatter.format(services),
                 productsEarnings: currencyFormatter.format(products),
                 total: currencyFormatter.format(total),
@@ -714,21 +409,18 @@ export default async function AdminFinancePage({
     const totalCommissionYearNumber =
         servicesCommissionYearNumber + productsCommissionYearNumber;
 
-    // Box 1: igual ao dashboard "Lucro real (mês)" sem despesas
     const netRevenueMonthNumber =
         totalReceivedNetMonth - totalCommissionMonthNumber;
 
     const netRevenueYearNumber =
         totalReceivedNetYear - totalCommissionYearNumber;
 
-    // Para detalhamento visual do box 1
     const servicesNetMonthNumber =
         Math.max(0, totalReceivedNetMonth - totalCardFeesNumber) -
         servicesCommissionMonthNumber;
 
     const productsNetMonthNumber = 0;
 
-    // Box 3
     const netIncomeNumber = netRevenueMonthNumber - totalExpensesNumber;
     const netIncomeYearNumber = netRevenueYearNumber - totalExpensesYearNumber;
 

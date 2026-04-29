@@ -13,7 +13,6 @@ import { getCurrentPainelUser } from '@/lib/painel-session';
 export type AdminModule =
     | 'DASHBOARD'
     | 'REPORTS'
-    | 'CHECKOUT'
     | 'APPOINTMENTS'
     | 'PROFESSIONALS'
     | 'SERVICES'
@@ -44,7 +43,6 @@ export type AdminSession = {
 type AdminAccessFlag =
     | 'canAccessDashboard'
     | 'canAccessReports'
-    | 'canAccessCheckout'
     | 'canAccessAppointments'
     | 'canAccessProfessionals'
     | 'canAccessServices'
@@ -65,7 +63,6 @@ type AdminAccessSelect = Record<AdminAccessFlag, true>;
 const ADMIN_ACCESS_SELECT: AdminAccessSelect = {
     canAccessDashboard: true,
     canAccessReports: true,
-    canAccessCheckout: true,
     canAccessAppointments: true,
     canAccessProfessionals: true,
     canAccessServices: true,
@@ -89,8 +86,6 @@ function moduleToAccessField(module: AdminModule): AdminAccessFlag | null {
             return 'canAccessDashboard';
         case 'REPORTS':
             return 'canAccessReports';
-        case 'CHECKOUT':
-            return 'canAccessCheckout';
         case 'APPOINTMENTS':
             return 'canAccessAppointments';
         case 'PROFESSIONALS':
@@ -240,7 +235,6 @@ type ModuleRoute = { module: AdminModule; href: string };
  */
 const FALLBACK_ROUTES: ModuleRoute[] = [
     { module: 'APPOINTMENTS', href: '/admin/appointments' },
-    { module: 'CHECKOUT', href: '/admin/checkout' },
     {
         module: 'PROFESSIONALS',
         // ✅ FIX: rota correta (plural)

@@ -7,7 +7,6 @@ import crypto from 'crypto';
 type PermissionsPayload = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
-    canAccessCheckout: boolean;
     canAccessAppointments: boolean;
     canAccessProfessionals: boolean;
     canAccessServices: boolean;
@@ -60,7 +59,6 @@ function normalizePermissions(
     return {
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
         canAccessReports: Boolean(partial?.canAccessReports ?? false),
-        canAccessCheckout: Boolean(partial?.canAccessCheckout ?? false),
         canAccessAppointments: Boolean(partial?.canAccessAppointments ?? true),
         canAccessProfessionals: Boolean(
             partial?.canAccessProfessionals ?? false
@@ -130,7 +128,6 @@ export async function GET() {
                       userId: true,
                       canAccessDashboard: true,
                       canAccessReports: true,
-                      canAccessCheckout: true,
                       canAccessAppointments: true,
                       canAccessProfessionals: true,
                       canAccessServices: true,
@@ -154,7 +151,6 @@ export async function GET() {
             acc[a.userId] = {
                 canAccessDashboard: !!a.canAccessDashboard,
                 canAccessReports: !!a.canAccessReports,
-                canAccessCheckout: !!a.canAccessCheckout,
                 canAccessAppointments: !!a.canAccessAppointments,
                 canAccessProfessionals: !!a.canAccessProfessionals,
                 canAccessServices: !!a.canAccessServices,
@@ -182,7 +178,6 @@ export async function GET() {
                             ? {
                                   canAccessDashboard: true,
                                   canAccessReports: true,
-                                  canAccessCheckout: true,
                                   canAccessAppointments: true,
                                   canAccessProfessionals: true,
                                   canAccessServices: true,

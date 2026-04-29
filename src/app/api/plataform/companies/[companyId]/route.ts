@@ -116,7 +116,6 @@ function normalizeSlug(raw: unknown): string | null {
 const ADMIN_ACCESS_ALL_TRUE = {
     canAccessDashboard: true,
     canAccessReports: true,
-    canAccessCheckout: true,
     canAccessAppointments: true,
     canAccessProfessionals: true,
     canAccessServices: true,
