@@ -1,0 +1,18 @@
+version: '2.2'
+
+services:
+    postgres:
+        image: postgres:17
+        container_name: atendeplay-db
+        restart: always
+        ports:
+            - '5435:5432'
+        environment:
+            POSTGRES_USER: docker
+            POSTGRES_PASSWORD: docker
+            POSTGRES_DB: atendeplay
+        volumes:
+            - ./pgdata:/var/lib/postgresql/data
+
+volumes:
+    pgdata:

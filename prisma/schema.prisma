@@ -1,0 +1,1062 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String?
+  segment   String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  adminAccesses     AdminAccess[]
+  adminUnitAccesses AdminUnitAccess[]
+  analyticsEvents   AnalyticsEvent[]
+  members           CompanyMember[]
+  categories        Category[]
+  expenses          Expense[]
+  orders            Order[]
+  orderItems        OrderItem[]
+  products          Product[]
+  productCategories ProductCategory[]
+  productSales      ProductSale[]
+  reviewTags        ReviewTag[]
+  rideReviews       RideReview[]
+  rides             Ride[]
+  units             Unit[]
+  faqItems          FaqItem[]
+  faqEvents         FaqEvent[]
+
+  clientAddresses ClientAddress[]
+
+  partnerVisibilities PartnerVisibility[]
+
+  whatsappChannels WhatsappChannel[]
+  whatsappSessions WhatsappSession[]
+
+  cardMachines          CardMachine[]
+  cardMachineCreditFees CardMachineCreditFee[]
+
+  communicationSettings     CompanyCommunicationSettings?
+  communicationLogs         CommunicationLog[]
+  communicationLogCompanies CommunicationLogCompany[]
+  appNotifications          AppNotification[]
+  memberVehicles            MemberVehicle[]
+  passwordResetTokens       PasswordResetToken[]
+
+  @@index([segment])
+  @@map("companies")
+}
+
+model CompanyMember {
+  id         String            @id @default(cuid())
+  companyId  String
+  userId     String
+  role       CompanyMemberRole @default(CLIENT)
+  isActive   Boolean           @default(true)
+  lastUnitId String?
+  joinedAt   DateTime          @default(now())
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  company  Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  lastUnit Unit?   @relation(fields: [lastUnitId], references: [id])
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([userId])
+  @@index([companyId, role])
+  @@map("company_members")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  passwordHash  String?
+  birthday      DateTime?
+  role          Role      @default(CLIENT)
+  isOwner       Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts            Account[]
+  sessions            Session[]
+  adminAccesses       AdminAccess[]
+  adminUnitAccesses   AdminUnitAccess[]
+  analyticsEvents     AnalyticsEvent[]
+  rideReviews         RideReview[]
+  companyMemberships  CompanyMember[]
+  passwordResetTokens PasswordResetToken[]
+  clientAddresses     ClientAddress[]
+  pushDevices         PushDevice[]
+  appNotifications    AppNotification[]
+  memberVehicles      MemberVehicle[]
+  ridesCreated        Ride[]               @relation("RidesCreatedByUser")
+  rideParticipations  RideParticipant[]
+  orders              Order[]
+
+  @@map("users")
+}
+
+model MemberVehicle {
+  id         String   @id @default(cuid())
+  companyId  String
+  userId     String
+  brand      String?
+  model      String?
+  plate      String?
+  cylinderCc Int?
+  color      String?
+  year       Int?
+  isMain     Boolean  @default(true)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([companyId, userId, isActive])
+  @@map("member_vehicles")
+}
+
+model PushDevice {
+  id          String   @id @default(cuid())
+  userId      String
+  deviceToken String   @unique
+  platform    String?
+  projectSlug String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isActive])
+  @@index([projectSlug])
+  @@map("push_devices")
+}
+
+model ClientAddress {
+  id           String   @id @default(cuid())
+  companyId    String
+  clientId     String
+  label        String
+  cep          String?
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+  reference    String?
+  isDefault    Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  client  User    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, clientId, label])
+  @@index([companyId])
+  @@index([clientId])
+  @@index([companyId, clientId, isActive])
+  @@index([clientId, isDefault])
+  @@map("client_addresses")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Unit {
+  id        String @id @default(cuid())
+  companyId String
+
+  name  String
+  phone String?
+
+  cep          String?
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+  address      String?
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  adminAccesses         AdminAccess[]
+  adminUnitAccesses     AdminUnitAccess[]
+  analyticsEvents       AnalyticsEvent[]
+  lastUsedByMembers     CompanyMember[]
+  expenses              Expense[]
+  orders                Order[]
+  productSales          ProductSale[]
+  products              Product[]
+  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  rides                 Ride[]
+  whatsappChannels      WhatsappChannel[]
+  whatsappSessions      WhatsappSession[]
+  cardMachines          CardMachine[]
+  cardMachineCreditFees CardMachineCreditFee[]
+
+  @@index([companyId])
+  @@map("units")
+}
+
+model CardMachine {
+  id              String   @id @default(cuid())
+  companyId       String
+  unitId          String
+  name            String
+  debitFeePercent Decimal  @default(0) @db.Decimal(5, 2)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company    Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit       Unit                   @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  creditFees CardMachineCreditFee[]
+
+  @@unique([unitId, name])
+  @@index([companyId])
+  @@index([unitId, isActive])
+  @@map("card_machines")
+}
+
+model CardMachineCreditFee {
+  id            String   @id @default(cuid())
+  companyId     String
+  unitId        String
+  cardMachineId String
+  installments  Int
+  feePercent    Decimal  @default(0) @db.Decimal(5, 2)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit        Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  cardMachine CardMachine @relation(fields: [cardMachineId], references: [id], onDelete: Cascade)
+
+  @@unique([cardMachineId, installments])
+  @@index([companyId])
+  @@index([unitId])
+  @@index([cardMachineId, isActive])
+  @@index([installments])
+  @@map("card_machine_credit_fees")
+}
+
+enum WhatsappSessionStage {
+  MENU
+  IDENTIFY_BY_PHONE
+  CHOOSE_COMPANY
+  ASK_EMAIL
+  REGISTER_NAME
+  CONFIRM_PHONE
+  REGISTER_BIRTHDATE
+  ASK_UNIT
+  FAQ_CATEGORY
+  FAQ_QUESTION
+  FAQ_ANSWER
+  DONE
+  SIGNUP_OFFER
+  SIGNUP_CHOOSE_COMPANY
+  SIGNUP_ASK_NAME
+  SIGNUP_ASK_EMAIL
+  SIGNUP_CONFIRM_PHONE
+  SIGNUP_ASK_PHONE
+  SIGNUP_ASK_BIRTHDATE
+  SIGNUP_REVIEW
+}
+
+model WhatsappChannel {
+  id            String   @id @default(cuid())
+  phoneNumberId String   @unique
+  displayPhone  String?
+  companyId     String
+  defaultUnitId String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  defaultUnit Unit?             @relation(fields: [defaultUnitId], references: [id], onDelete: SetNull)
+  sessions    WhatsappSession[]
+  faqEvents   FaqEvent[]
+
+  @@index([companyId, isActive])
+  @@index([defaultUnitId])
+  @@map("whatsapp_channels")
+}
+
+model WhatsappSession {
+  id        String               @id @default(cuid())
+  channelId String
+  companyId String
+  fromPhone String
+  stage     WhatsappSessionStage @default(MENU)
+  payload   Json?
+  expiresAt DateTime
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  unitId    String?
+
+  channel   WhatsappChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit      Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  faqEvents FaqEvent[]
+
+  @@unique([channelId, fromPhone])
+  @@index([companyId, fromPhone])
+  @@index([expiresAt])
+  @@index([unitId])
+  @@map("whatsapp_sessions")
+}
+
+model Category {
+  id             String   @id @default(cuid())
+  companyId      String
+  name           String
+  isActive       Boolean  @default(true)
+  showInProducts Boolean  @default(false)
+  showInFaq      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  productLinks ProductCategory[]
+  faqItems     FaqItem[]
+  faqEvents    FaqEvent[]
+
+  @@unique([companyId, name])
+  @@index([companyId, isActive])
+  @@index([companyId, showInProducts, isActive])
+  @@index([companyId, showInFaq, isActive])
+  @@map("categories")
+}
+
+model Ride {
+  id        String  @id @default(cuid())
+  companyId String
+  unitId    String?
+
+  title       String
+  destination String
+  description String?
+  observation String?
+
+  startsAt DateTime
+  endsAt   DateTime?
+
+  status RideStatus @default(DRAFT)
+
+  publishedAt DateTime?
+  canceledAt  DateTime?
+  finishedAt  DateTime?
+
+  createdByUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit      Unit?   @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  createdBy User?   @relation("RidesCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  meetingPoints RideMeetingPoint[]
+  images        RideImage[]
+  participants  RideParticipant[]
+  reviews       RideReview[]
+
+  @@index([companyId])
+  @@index([unitId])
+  @@index([startsAt])
+  @@index([status])
+  @@index([companyId, status])
+  @@index([companyId, startsAt])
+  @@map("rides")
+}
+
+model RideMeetingPoint {
+  id        String   @id @default(cuid())
+  rideId    String
+  name      String
+  address   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId])
+  @@index([rideId, order])
+  @@map("ride_meeting_points")
+}
+
+model RideImage {
+  id        String   @id @default(cuid())
+  rideId    String
+  imageUrl  String
+  imageKey  String?
+  imageMime String?
+  imageSize Int?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+
+  @@index([rideId])
+  @@index([rideId, order])
+  @@map("ride_images")
+}
+
+model RideParticipant {
+  id     String @id @default(cuid())
+  rideId String
+  userId String
+
+  status RideParticipantStatus @default(GOING)
+
+  confirmedAt            DateTime?
+  confirmationCanceledAt DateTime?
+  arrivedHomeAt          DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ride Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([rideId, userId])
+  @@index([rideId])
+  @@index([userId])
+  @@index([status])
+  @@index([arrivedHomeAt])
+  @@map("ride_participants")
+}
+
+model Product {
+  id                     String   @id @default(cuid())
+  companyId              String
+  unitId                 String
+  name                   String
+  imageUrl               String
+  imageKey               String?
+  imageMime              String?
+  imageSize              Int?
+  description            String
+  price                  Decimal  @db.Decimal(10, 2)
+  professionalPercentage Int      @default(0)
+  legacyCategory         String?  @map("category")
+  isActive               Boolean  @default(true)
+  isFeatured             Boolean  @default(false)
+  stockQuantity          Int      @default(0)
+  pickupDeadlineDays     Int      @default(2)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @default(now())
+
+  categories ProductCategory[]
+  orderItems OrderItem[]
+  sales      ProductSale[]
+  company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit       Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([unitId])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+model ProductCategory {
+  id         String   @id @default(cuid())
+  companyId  String
+  productId  String
+  categoryId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, categoryId])
+  @@index([companyId])
+  @@index([productId])
+  @@index([categoryId])
+  @@map("product_categories")
+}
+
+model ProductSale {
+  id         String   @id @default(cuid())
+  companyId  String
+  unitId     String
+  productId  String
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  totalPrice Decimal  @db.Decimal(10, 2)
+  soldAt     DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([unitId])
+  @@index([productId])
+  @@index([soldAt])
+  @@map("product_sales")
+}
+
+model Order {
+  id                  String      @id @default(cuid())
+  companyId           String
+  unitId              String
+  clientId            String?
+  status              OrderStatus @default(PENDING)
+  reservedUntil       DateTime?
+  expiredAt           DateTime?
+  inventoryRevertedAt DateTime?
+  totalAmount         Decimal     @default(0) @db.Decimal(10, 2)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  items   OrderItem[]
+  client  User?       @relation(fields: [clientId], references: [id])
+  company Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit    Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([unitId])
+  @@index([clientId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                  String                @id @default(cuid())
+  companyId           String
+  orderId             String
+  itemType            OrderItemType         @default(PRODUCT)
+  productId           String?
+  descriptionSnapshot String?
+  quantity            Int                   @default(1)
+  unitPrice           Decimal               @db.Decimal(10, 2)
+  totalPrice          Decimal               @db.Decimal(10, 2)
+  originalUnitPrice   Decimal?              @db.Decimal(10, 2)
+  originalTotalPrice  Decimal?              @db.Decimal(10, 2)
+  hasManualDiscount   Boolean               @default(false)
+  discountType        CheckoutDiscountType?
+  discountPercent     Decimal?              @db.Decimal(5, 2)
+  discountAmount      Decimal?              @db.Decimal(10, 2)
+  finalUnitPrice      Decimal?              @db.Decimal(10, 2)
+  finalTotalPrice     Decimal?              @db.Decimal(10, 2)
+  discountReason      String?
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  company Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([companyId])
+  @@index([orderId])
+  @@index([itemType])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  companyId   String
+  unitId      String
+  description String
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(10, 2)
+  dueDate     DateTime
+  isRecurring Boolean         @default(false)
+  isPaid      Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([unitId])
+  @@index([dueDate])
+  @@map("expenses")
+}
+
+model RideReview {
+  id          String   @id @default(cuid())
+  companyId   String
+  rideId      String
+  clientId    String
+  rating      Int
+  comment     String?
+  isAnonymous Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tags    RideReviewTag[]
+  ride    Ride            @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  client  User            @relation(fields: [clientId], references: [id])
+  company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([rideId, clientId])
+  @@index([companyId])
+  @@index([clientId])
+  @@index([rideId])
+  @@map("ride_reviews")
+}
+
+model ReviewTag {
+  id         String   @id @default(cuid())
+  companyId  String
+  label      String
+  isActive   Boolean  @default(true)
+  isNegative Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  reviews RideReviewTag[]
+  company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, label])
+  @@index([companyId])
+  @@map("review_tags")
+}
+
+model RideReviewTag {
+  id        String   @id @default(cuid())
+  reviewId  String
+  tagId     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  review RideReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  tag    ReviewTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, tagId])
+  @@index([tagId])
+  @@map("ride_review_tags")
+}
+
+model AdminAccess {
+  id                     String   @id @default(cuid())
+  companyId              String
+  userId                 String
+  unitId                 String?
+  canAccessDashboard     Boolean  @default(false)
+  canAccessReports       Boolean  @default(false)
+  canAccessRides         Boolean  @default(false)
+  canAccessCategories    Boolean  @default(false)
+  canAccessReviews       Boolean  @default(false)
+  canAccessProducts      Boolean  @default(false)
+  canAccessPartners      Boolean  @default(false)
+  canAccessMembers       Boolean  @default(false)
+  canAccessFinance       Boolean  @default(false)
+  canAccessSettings      Boolean  @default(false)
+  canAccessCommunication Boolean  @default(false)
+  canAccessFaq           Boolean  @default(false)
+  canAccessFaqReports    Boolean  @default(false)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  unit    Unit?   @relation(fields: [unitId], references: [id])
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([companyId])
+  @@index([unitId])
+  @@index([userId])
+  @@map("admin_access")
+}
+
+model AdminUnitAccess {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  unitId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId, unitId])
+  @@index([companyId])
+  @@index([userId])
+  @@index([unitId])
+  @@map("admin_unit_access")
+}
+
+model AnalyticsEvent {
+  id               String   @id @default(cuid())
+  companyId        String?
+  userId           String?
+  unitId           String?
+  name             String
+  ts               DateTime @default(now())
+  source           String?
+  pushId           String?
+  pushType         String?
+  secondsSincePush Int?
+  payload          Json?
+  context          Json?
+  ip               String?
+  userAgent        String?
+  createdAt        DateTime @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id])
+  unit    Unit?    @relation(fields: [unitId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@index([companyId, createdAt])
+  @@index([unitId, createdAt])
+  @@index([userId, createdAt])
+  @@index([name, createdAt])
+  @@map("analytics_events")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  companyId String?
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, userId])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+model Partner {
+  id             String                @id @default(cuid())
+  name           String
+  logoUrl        String
+  logoKey        String?
+  discountPct    Int                   @default(0)
+  description    String?
+  rules          String?
+  ctaUrl         String
+  ctaLabel       String                @default("Ativar cashback e ir pra loja")
+  isActive       Boolean               @default(true)
+  visibilityMode PartnerVisibilityMode @default(ALL)
+  sortOrder      Int                   @default(100)
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  companies PartnerVisibility[]
+
+  @@index([isActive, sortOrder])
+  @@index([visibilityMode])
+  @@map("partners")
+}
+
+model PartnerVisibility {
+  id        String   @id @default(cuid())
+  partnerId String
+  companyId String
+  isEnabled Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, companyId])
+  @@index([companyId, isEnabled])
+  @@index([partnerId, isEnabled])
+  @@map("partner_visibilities")
+}
+
+model FaqItem {
+  id         String   @id @default(cuid())
+  companyId  String
+  categoryId String
+  question   String
+  answer     String
+  sortOrder  Int      @default(100)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  company  Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  events   FaqEvent[]
+
+  @@index([companyId, isActive])
+  @@index([categoryId, isActive])
+  @@index([companyId, categoryId, isActive])
+  @@index([companyId, sortOrder])
+  @@map("faq_items")
+}
+
+model FaqEvent {
+  id                String       @id @default(cuid())
+  companyId         String
+  channelId         String?
+  fromPhone         String?
+  categoryId        String?
+  faqItemId         String?
+  whatsappSessionId String?
+  eventType         FaqEventType
+  createdAt         DateTime     @default(now())
+  payload           Json?
+
+  company         Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  category        Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  faqItem         FaqItem?         @relation(fields: [faqItemId], references: [id], onDelete: SetNull)
+  channel         WhatsappChannel? @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  whatsappSession WhatsappSession? @relation(fields: [whatsappSessionId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([channelId, createdAt])
+  @@index([categoryId, createdAt])
+  @@index([faqItemId, createdAt])
+  @@index([whatsappSessionId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("faq_events")
+}
+
+model CommunicationLogCompany {
+  id                 String   @id @default(cuid())
+  communicationLogId String
+  companyId          String
+  billable           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+
+  communicationLog CommunicationLog @relation(fields: [communicationLogId], references: [id], onDelete: Cascade)
+  company          Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([communicationLogId, companyId])
+  @@index([companyId])
+  @@index([communicationLogId])
+  @@map("communication_log_companies")
+}
+
+model CompanyCommunicationSettings {
+  id        String @id @default(cuid())
+  companyId String @unique
+
+  whatsappCredits        Int       @default(0)
+  birthdayMessageEnabled Boolean   @default(false)
+  birthdayMessageContent String?
+  freeWhatsappUsedAt     DateTime?
+  pushEnabled            Boolean   @default(true)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("company_communication_settings")
+}
+
+model CommunicationLog {
+  id        String @id @default(cuid())
+  companyId String
+
+  channel        CommunicationChannel
+  type           CommunicationType
+  automationType CommunicationAutomationType?
+  content        String
+  targetPhone    String?
+  status         String
+  consumedCredit Boolean                      @default(false)
+  createdAt      DateTime                     @default(now())
+  sentAt         DateTime?
+
+  company          Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  logCompanies     CommunicationLogCompany[]
+  appNotifications AppNotification[]
+
+  @@index([companyId, createdAt])
+  @@index([channel, createdAt])
+  @@index([type, createdAt])
+  @@map("communication_logs")
+}
+
+model AppNotification {
+  id                 String              @id @default(cuid())
+  companyId          String
+  userId             String
+  communicationLogId String?
+  type               AppNotificationType
+  title              String
+  message            String
+  isRead             Boolean             @default(false)
+  readAt             DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  metadata           Json?
+
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  communicationLog CommunicationLog? @relation(fields: [communicationLogId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt])
+  @@index([communicationLogId])
+  @@map("app_notifications")
+}
+
+enum Role {
+  CLIENT
+  ADMIN
+  PLATFORM_OWNER
+  PLATFORM_STAFF
+}
+
+enum CompanyMemberRole {
+  OWNER
+  ADMIN
+  STAFF
+  CLIENT
+}
+
+enum RideStatus {
+  DRAFT
+  PUBLISHED
+  CANCELED
+  FINISHED
+}
+
+enum RideParticipantStatus {
+  GOING
+  NOT_GOING
+}
+
+enum ExpenseCategory {
+  RENT
+  UTILITIES
+  TAXES
+  SUPPLIES
+  OTHER
+}
+
+enum OrderStatus {
+  PENDING
+  PENDING_CHECKIN
+  EXPIRED
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentMethod {
+  CREDIT
+  DEBIT
+  PIX
+  CASH
+}
+
+enum OrderItemType {
+  PRODUCT
+}
+
+enum CheckoutDiscountType {
+  PERCENT
+  AMOUNT
+}
+
+enum PartnerVisibilityMode {
+  ALL
+  SELECTED
+}
+
+enum FaqEventType {
+  FAQ_MENU_ENTRY
+  FAQ_COMPANY_SELECTED
+  FAQ_CATEGORY_SELECTED
+  FAQ_QUESTION_SELECTED
+  FAQ_ANSWER_VIEWED
+  FAQ_BACK_TO_QUESTIONS
+  FAQ_BACK_TO_MENU
+  FAQ_SESSION_EXPIRED
+}
+
+enum CommunicationChannel {
+  WHATSAPP
+  PUSH
+}
+
+enum CommunicationType {
+  MANUAL
+  AUTOMATIC
+}
+
+enum CommunicationAutomationType {
+  BIRTHDAY
+}
+
+enum AppNotificationType {
+  PUSH_MESSAGE
+}

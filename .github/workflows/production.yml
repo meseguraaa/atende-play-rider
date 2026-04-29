@@ -1,0 +1,135 @@
+name: Production Deploy
+
+on:
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: "production"
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate (Linux)
+        run: pnpm prisma generate
+        env:
+          DATABASE_URL: "postgresql://user:pass@127.0.0.1:5432/db?schema=public"
+
+      - name: Build (Next.js)
+        run: pnpm build
+        env:
+          DATABASE_URL: "postgresql://user:pass@127.0.0.1:5432/db?schema=public"
+
+      - name: Package release artifact
+        run: |
+          set -euo pipefail
+
+          rm -rf .release
+          mkdir -p .release
+
+          # ✅ Garantias
+          test -f .next/standalone/server.js
+          test -f .next/BUILD_ID
+
+          # ✅ Mantém a estrutura padrão esperada em produção
+          mkdir -p .release/.next
+          cp -R .next/standalone .release/.next/standalone
+          cp -R .next/static .release/.next/static
+          cp .next/BUILD_ID .release/.next/BUILD_ID
+
+          # (Opcional, mas seguro em alguns casos)
+          if [ -d ".next/server" ]; then
+            cp -R .next/server .release/.next/server
+          fi
+
+          if [ -d "public" ]; then
+            cp -R public .release/public
+          fi
+
+          echo "${GITHUB_SHA}" > .release/RELEASE_SHA
+
+          tar -czf release.tgz -C .release .
+          sha256sum release.tgz > release.tgz.sha256
+
+          ls -lh release.tgz release.tgz.sha256
+          head -c 120 release.tgz.sha256; echo
+
+
+      - name: Create GitHub Release (artifact)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "deploy-${{ github.sha }}"
+          name: "Deploy ${{ github.sha }}"
+          draft: false
+          prerelease: false
+          files: |
+            release.tgz
+            release.tgz.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write SSH key
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROD_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${{ secrets.PROD_SSH_PORT }}" -H "${{ secrets.PROD_SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy on server (pull-based)
+        run: |
+          set -euo pipefail
+
+          TGZ_URL="https://github.com/${{ github.repository }}/releases/download/deploy-${{ github.sha }}/release.tgz"
+          SHA_URL="https://github.com/${{ github.repository }}/releases/download/deploy-${{ github.sha }}/release.tgz.sha256"
+
+          # Retry para aguentar quedas de SSH durante download grande.
+          # Como o deploy_pull.sh faz "resume", cada tentativa continua de onde parou.
+          for i in 1 2 3 4 5; do
+            echo "== deploy attempt $i/5 =="
+
+            if ssh \
+              -o BatchMode=yes \
+              -o StrictHostKeyChecking=yes \
+              -o IdentitiesOnly=yes \
+              -o ServerAliveInterval=10 \
+              -o ServerAliveCountMax=30 \
+              -o ConnectTimeout=10 \
+              -i ~/.ssh/id_rsa \
+              -p "${{ secrets.PROD_SSH_PORT }}" \
+              "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}" \
+              "bash -lc '/home/deploy/apps/atendeplay/bin/deploy_pull.sh \"${TGZ_URL}\" \"${SHA_URL}\"'"; then
+              echo "== deploy finished successfully =="
+              exit 0
+            fi
+
+            echo "SSH caiu ou falhou. Retentando em 8s..."
+            sleep 8
+          done
+
+          echo "Deploy falhou após 5 tentativas."
+          exit 1

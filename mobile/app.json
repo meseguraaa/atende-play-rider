@@ -1,0 +1,145 @@
+{
+    "expo": {
+        "name": "AtendePlay",
+        "slug": "atendeplay",
+        "version": "1.3.4",
+        "orientation": "portrait",
+        "icon": "./brands/atendeplay/assets/icon.png",
+        "userInterfaceStyle": "light",
+        "newArchEnabled": false,
+        "scheme": "atendeplay",
+        "splash": {
+            "image": "./brands/atendeplay/assets/icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#ffffff"
+        },
+        "ios": {
+            "bundleIdentifier": "com.atendeplay.app",
+            "buildNumber": "5",
+            "supportsTablet": false,
+            "usesAppleSignIn": true,
+            "infoPlist": {
+                "NSPhotoLibraryUsageDescription": "Precisamos acessar sua galeria para você escolher uma foto de perfil.",
+                "ITSAppUsesNonExemptEncryption": false
+            }
+        },
+        "android": {
+            "softwareKeyboardLayoutMode": "resize",
+            "adaptiveIcon": {
+                "foregroundImage": "./brands/atendeplay/assets/adaptive-icon.png",
+                "backgroundColor": "#05070C"
+            },
+            "edgeToEdgeEnabled": true,
+            "predictiveBackGestureEnabled": false,
+            "package": "com.atendeplay.app",
+            "intentFilters": [
+                {
+                    "action": "VIEW",
+                    "category": ["BROWSABLE", "DEFAULT"],
+                    "data": [
+                        {
+                            "scheme": "atendeplay"
+                        }
+                    ]
+                },
+                {
+                    "action": "VIEW",
+                    "category": ["BROWSABLE", "DEFAULT"],
+                    "data": [
+                        {
+                            "scheme": "atendeplay",
+                            "host": "auth"
+                        }
+                    ]
+                },
+                {
+                    "action": "VIEW",
+                    "category": ["BROWSABLE", "DEFAULT"],
+                    "data": [
+                        {
+                            "scheme": "atendeplay"
+                        }
+                    ]
+                },
+                {
+                    "action": "VIEW",
+                    "category": ["BROWSABLE", "DEFAULT"],
+                    "data": [
+                        {
+                            "scheme": "atendeplay",
+                            "host": "auth"
+                        }
+                    ]
+                }
+            ]
+        },
+        "web": {
+            "favicon": "./assets/favicon.png"
+        },
+        "plugins": [
+            "expo-dev-client",
+            "expo-secure-store",
+            "expo-web-browser",
+            "expo-font",
+            "expo-apple-authentication"
+        ],
+        "extra": {
+            "router": {},
+            "brandSlug": "atendeplay",
+            "companyId": "cmmj6as5800k9i6xc2kl4v3od",
+            "appName": "AtendePlay",
+            "theme": {
+                "primary": "#7C6CFF",
+                "primaryText": "#000000",
+                "secondary": "#333333",
+                "background": "#05070C",
+                "btnLogin": "#7C6CFF",
+                "card": "#4c4c4c",
+                "cardBorder": "rgba(255,255,255,0.08)",
+                "heroCardBg": "rgba(124,108,255,0.22)",
+                "heroCardBorder": "rgba(124,108,255,0.35)",
+                "categoryChipText": "#fff",
+                "categoryChipTextActive": "#fff",
+                "badgeText": "#FFFFFF",
+                "btnAction": "#00ff3c",
+                "textMuted": "#9CA3AF",
+                "textDim": "rgba(255,255,255,0.65)",
+                "danger": "#F97373",
+                "success": "#00ff3c",
+                "divider": "rgba(255,255,255,0.12)",
+                "white": "#FFFFFF",
+                "black": "#0B0B10",
+                "overlay08": "rgba(255,255,255,0.08)",
+                "overlay10": "rgba(255,255,255,0.10)",
+                "overlay12": "rgba(255,255,255,0.12)",
+                "overlay18": "rgba(255,255,255,0.18)",
+                "black28": "rgba(0,0,0,0.28)",
+                "black05": "rgba(0,0,0,0.05)",
+                "black08": "rgba(0,0,0,0.08)",
+                "black10": "rgba(0,0,0,0.10)",
+                "black45": "rgba(0,0,0,0.45)",
+                "overlayDim": "rgba(0,0,0,0.65)",
+                "authInputBorder": "rgba(255,255,255,0.18)",
+                "authInputBg": "rgba(255,255,255,0.08)",
+                "authInputText": "#F8FAFC",
+                "authLink": "#FFFFFF",
+                "homeBirthdayDotBg": "#F97373",
+                "historyIconBg": "rgba(216,213,255)",
+                "historyIconColor": "#7C6CFF",
+                "text": "#F8FAFC"
+            },
+            "scheme": "atendeplay",
+            "eas": {
+                "projectId": "48ae9f11-8328-48ab-8f91-2ec87a3e209d"
+            }
+        },
+        "owner": "brunoleal2005",
+        "runtimeVersion": {
+            "policy": "appVersion"
+        },
+        "updates": {
+            "url": "https://u.expo.dev/48ae9f11-8328-48ab-8f91-2ec87a3e209d"
+        }
+    },
+    "owner": "brunoleal2005"
+}

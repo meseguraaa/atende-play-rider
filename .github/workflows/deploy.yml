@@ -1,0 +1,134 @@
+name: Deploy VPS
+
+on:
+    push:
+        branches:
+            - main
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Write SSH key + known_hosts
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
+                    echo "ERRO: secret VPS_SSH_KEY está vazio"
+                    exit 1
+                  fi
+                  if [ -z "${{ secrets.VPS_HOST }}" ]; then
+                    echo "ERRO: secret VPS_HOST está vazio"
+                    exit 1
+                  fi
+                  if [ -z "${{ secrets.VPS_USER }}" ]; then
+                    echo "ERRO: secret VPS_USER está vazio"
+                    exit 1
+                  fi
+
+                  PORT="${{ secrets.VPS_PORT }}"
+                  if [ -z "${PORT}" ]; then
+                    PORT="22"
+                  fi
+
+                  mkdir -p ~/.ssh
+                  chmod 700 ~/.ssh
+
+                  echo "${{ secrets.VPS_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_ed25519
+                  chmod 600 ~/.ssh/id_ed25519
+
+                  touch ~/.ssh/known_hosts
+                  chmod 600 ~/.ssh/known_hosts
+
+                  ssh-keyscan -p "$PORT" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+            - name: Deploy on server (pull-based + releases)
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  PORT="${{ secrets.VPS_PORT }}"
+                  if [ -z "${PORT}" ]; then
+                    PORT="22"
+                  fi
+
+                  ssh -p "$PORT" \
+                    -o StrictHostKeyChecking=yes \
+                    -i ~/.ssh/id_ed25519 \
+                    "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << 'EOF'
+                      set -euo pipefail
+
+                      APP_BASE="/home/deploy/apps/atendeplay"
+                      SHARED="${APP_BASE}/shared"
+                      ENV_FILE="${SHARED}/.env.production"
+                      REPO_URL="https://github.com/meseguraaa/atende-play-servicos.git"
+
+                      TS="$(date -u +%Y%m%dT%H%M%SZ)"
+                      RELEASE_DIR="${APP_BASE}/releases/${TS}"
+                      REPO_DIR="${RELEASE_DIR}/repo"
+
+                      echo "[*] Release: $RELEASE_DIR"
+
+                      export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:$PATH"
+
+                      if [ ! -f "$ENV_FILE" ]; then
+                        echo "ERRO: env file não encontrado em $ENV_FILE"
+                        exit 1
+                      fi
+
+                      mkdir -p "${APP_BASE}/releases"
+                      mkdir -p "$RELEASE_DIR"
+                      chmod 755 "${APP_BASE}/releases" || true
+
+                      git clone --depth 1 "$REPO_URL" "$REPO_DIR"
+                      cd "$REPO_DIR"
+                      git fetch origin
+                      git reset --hard origin/main
+
+                      # Carrega env do app (DATABASE_URL etc.)
+                      set -a
+                      source "$ENV_FILE"
+                      set +a
+
+                      # Garante pnpm
+                      if ! command -v pnpm >/dev/null 2>&1; then
+                        npm i -g pnpm@9
+                      fi
+                      echo "[*] pnpm: $(pnpm -v) ($(command -v pnpm))"
+
+                      # ---------
+                      # IMPORTANTE:
+                      # Para prisma generate funcionar, precisamos instalar deps COM devDependencies
+                      # mesmo que o runtime rode como production.
+                      # ---------
+                      export NODE_ENV=development
+
+                      if [ -f pnpm-lock.yaml ]; then
+                        pnpm install --frozen-lockfile --prod=false
+                      elif [ -f package-lock.json ]; then
+                        npm ci
+                      else
+                        npm install
+                      fi
+
+                      # Agora sim: build como production
+                      export NODE_ENV=production
+
+                      if [ -f pnpm-lock.yaml ]; then
+                        pnpm run build
+                      else
+                        npm run build
+                      fi
+
+                      ln -sfn "$REPO_DIR" "${APP_BASE}/current"
+
+                      sudo systemctl daemon-reload
+                      sudo systemctl restart atendeplay
+
+                      echo "✅ Deploy OK. current -> $REPO_DIR"
+                  EOF

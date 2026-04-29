@@ -1,0 +1,257 @@
+@import 'tailwindcss';
+
+@theme {
+    /* Content Colors */
+    --color-content-primary: #ffffff;
+    --color-content-secondary: #98959d;
+    --color-content-tertiary: #666666;
+    --color-content-brand: #9282fa;
+
+    /* Background Colors */
+    --color-background-primary: #151515;
+    --color-background-secondary: #1e1e1e;
+    --color-background-tertiary: #23242c;
+    --color-background-brand: #9282fa;
+    --color-background-highlights: #bdb4fa;
+
+    /* Border Colors */
+    --color-border-primary: #3e3c41;
+    --color-border-secondary: #86818c;
+    --color-border-brand: #9282fa;
+    --color-border-divisor: #353339;
+
+    /* Accent Colors */
+    --color-accent-primary: #4f35e1;
+    --color-accent-primary-light: #7262fa;
+    --color-accent-blue: #027df0;
+    --color-accent-blue-light: #16487a;
+    --color-accent-yellow: #f0dc02;
+    --color-accent-yellow-light: #75601b;
+    --color-accent-orange: #f09102;
+    --color-accent-orange-light: #75501b;
+
+    /* Typography */
+    --font-family-title: 'Inter Tight', sans-serif;
+    --font-family-body: 'Inter', sans-serif;
+
+    /* Title Typography */
+    --text-title-size: 24px;
+    --text-title-line-height: 32px;
+    --text-title-weight: 700;
+
+    /* Body Typography */
+    --text-paragraph-medium-size: 14px;
+    --text-paragraph-medium-line-height: 24px;
+    --text-paragraph-medium-weight: 500;
+
+    --text-paragraph-small-size: 12px;
+    --text-paragraph-small-line-height: 16px;
+    --text-paragraph-small-weight: 500;
+
+    --text-label-large-size: 16px;
+    --text-label-large-line-height: 24px;
+    --text-label-large-weight: 700;
+
+    --text-label-medium-size: 14px;
+    --text-label-medium-line-height: 24px;
+    --text-label-medium-weight: 700;
+
+    --text-label-small-size: 12px;
+    --text-label-small-line-height: 16px;
+    --text-label-small-weight: 700;
+
+    --text-link-size: 12px;
+    --text-link-line-height: 16px;
+    --text-link-weight: 500;
+
+    /* Existing :root variables */
+    --radius: 0.625rem;
+    --background: var(--color-background-primary);
+    --foreground: var(--color-content-primary);
+    --card: var(--color-background-secondary);
+    --card-foreground: var(--color-content-primary);
+    --popover: var(--color-background-secondary);
+    --popover-foreground: var(--color-content-primary);
+    --primary: var(--color-content-brand);
+    --primary-foreground: var(--color-content-primary);
+    --secondary: var(--color-background-tertiary);
+    --secondary-foreground: var(--color-content-primary);
+    --muted: var(--color-background-tertiary);
+    --muted-foreground: var(--color-content-secondary);
+    --accent: var(--color-accent-yellow);
+    --accent-foreground: var(--color-content-primary);
+    --destructive: #dc2626;
+    --destructive-foreground: #ffffff;
+    --border: var(--color-border-primary);
+    --input: var(--color-border-primary);
+    --ring: var(--color-border-brand);
+}
+
+@layer base {
+    body {
+        background-color: var(--color-background-primary);
+        color: var(--color-content-primary);
+        font-family: var(--font-inter), sans-serif;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: var(--font-inter-tight), sans-serif;
+        font-weight: var(--text-title-weight);
+    }
+
+    h1 {
+        font-size: var(--text-title-size);
+        line-height: var(--text-title-line-height);
+    }
+}
+
+/* Typography Utility Classes */
+@layer utilities {
+    .text-title {
+        font-family: var(--font-inter-tight), sans-serif;
+        font-size: var(--text-title-size);
+        line-height: var(--text-title-line-height);
+        font-weight: var(--text-title-weight);
+    }
+
+    .text-title-modal {
+        font-family: var(--font-family-title);
+        font-size: 32px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+
+    .text-paragraph-medium {
+        font-family: var(--font-inter), sans-serif;
+        font-size: var(--text-paragraph-medium-size);
+        line-height: var(--text-paragraph-medium-line-height);
+        font-weight: var(--text-paragraph-medium-weight);
+    }
+
+    .text-paragraph-small {
+        font-family: var(--font-inter), sans-serif;
+        font-size: var(--text-paragraph-small-size);
+        line-height: var(--text-paragraph-small-line-height);
+        font-weight: var(--text-paragraph-small-weight);
+    }
+
+    .text-label-large {
+        font-family: var(--font-inter), sans-serif;
+        font-size: var(--text-label-large-size);
+        line-height: var(--text-label-large-line-height);
+        font-weight: var(--text-label-large-weight);
+    }
+
+    .text-label-medium {
+        font-family: var(--font-inter), sans-serif;
+        font-size: var(--text-label-medium-size);
+        line-height: var(--text-label-medium-line-height);
+        font-weight: var(--text-label-medium-weight);
+    }
+
+    .text-label-small {
+        font-family: var(--font-inter), sans-serif;
+        font-size: var(--text-label-small-size);
+        line-height: var(--text-label-small-line-height);
+        font-weight: var(--text-label-small-weight);
+    }
+
+    .text-link {
+        font-family: var(--font-inter), sans-serif;
+        font-size: var(--text-link-size);
+        line-height: var(--text-link-line-height);
+        font-weight: var(--text-link-weight);
+    }
+
+    /* Color Utilities */
+    .text-content-primary {
+        color: var(--color-content-primary);
+    }
+    .text-content-secondary {
+        color: var(--color-content-secondary);
+    }
+    .text-content-tertiary {
+        color: var(--color-content-tertiary);
+    }
+    .text-content-brand {
+        color: var(--color-content-brand);
+    }
+
+    .text-destructive {
+        color: #dc2626;
+    }
+
+    .bg-background-primary {
+        background-color: var(--color-background-primary);
+    }
+    .bg-background-secondary {
+        background-color: var(--color-background-secondary);
+    }
+    .bg-background-tertiary {
+        background-color: var(--color-background-tertiary);
+    }
+    .bg-background-brand {
+        background-color: var(--color-background-brand);
+    }
+    .bg-background-highlights {
+        background-color: var(--color-background-highlights);
+    }
+
+    .border-border-primary {
+        border-color: var(--color-border-primary);
+    }
+    .border-border-secondary {
+        border-color: var(--color-border-secondary);
+    }
+    .border-border-brand {
+        border-color: var(--color-border-brand);
+    }
+    .border-border-divisor {
+        border-color: var(--color-border-divisor);
+    }
+
+    /* Accent Background Colors */
+    .bg-accent-blue {
+        background-color: var(--color-accent-blue);
+    }
+    .bg-accent-blue-light {
+        background-color: var(--color-accent-blue-light);
+    }
+    .bg-accent-yellow {
+        background-color: var(--color-accent-yellow);
+    }
+    .bg-accent-yellow-light {
+        background-color: var(--color-accent-yellow-light);
+    }
+    .bg-accent-orange {
+        background-color: var(--color-accent-orange);
+    }
+    .bg-accent-orange-light {
+        background-color: var(--color-accent-orange-light);
+    }
+}
+
+/* Toast Error Styles */
+[data-sonner-toast][data-type='error'] {
+    background-color: #dc2626 !important;
+    border-color: #b91c1c !important;
+    color: #ffffff !important;
+}
+
+[data-sonner-toast][data-type='error'] [data-title] {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+}
+
+[data-sonner-toast][data-type='error'] [data-description] {
+    color: #ffffff !important;
+}
+
+[data-sonner-toast][data-type='error'] [data-icon] {
+    color: #ffffff !important;
+}

@@ -1,0 +1,12 @@
+{
+    "expo": {
+        "extra": {
+            "eas": {
+                "projectId": "d227b1c1-7eab-4e9e-a7e7-e985ef64fa64"
+            }
+        },
+        "android": {
+            "package": "com.brunoleal2005.atendeplay"
+        }
+    }
+}

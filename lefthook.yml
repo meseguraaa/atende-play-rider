@@ -1,0 +1,12 @@
+pre-commit:
+    commands:
+        check:
+            run: npx prettier --write {staged_files}
+            glob: '*.{js,jsx,ts,tsx,css,json,md}'
+            stage_fixed: true
+
+pre-push:
+    commands:
+        validate:
+            glob: '*.{ts,tsx}'
+            run: npx tsc --noEmit
