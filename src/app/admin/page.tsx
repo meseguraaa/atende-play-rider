@@ -12,7 +12,6 @@ type AdminAccessLike = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
     canAccessAppointments: boolean;
-    canAccessProfessionals: boolean;
     canAccessServices: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
@@ -93,7 +92,6 @@ export default async function AdminIndexPage() {
             canAccessDashboard: true,
             canAccessReports: true,
             canAccessAppointments: true,
-            canAccessProfessionals: true,
             canAccessServices: true,
             canAccessCategories: true,
             canAccessReviews: true,

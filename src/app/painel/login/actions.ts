@@ -17,7 +17,6 @@ type AdminAccessRow = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
     canAccessAppointments: boolean;
-    canAccessProfessionals: boolean;
     canAccessServices: boolean;
     canAccessReviews: boolean;
     canAccessProducts: boolean;
@@ -174,7 +173,6 @@ export async function loginPainel(formData: FormData) {
                     canAccessDashboard: true,
                     canAccessReports: true,
                     canAccessAppointments: true,
-                    canAccessProfessionals: true,
                     canAccessServices: true,
                     canAccessReviews: true,
                     canAccessProducts: true,

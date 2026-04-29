@@ -5,7 +5,6 @@ export type AdminAccessLike = Partial<
         | 'canAccessDashboard'
         | 'canAccessReports'
         | 'canAccessAppointments'
-        | 'canAccessProfessionals'
         | 'canAccessServices'
         | 'canAccessCategories'
         | 'canAccessReviews'
@@ -27,7 +26,6 @@ export type AdminMenuKey =
     | 'dashboard'
     | 'reports'
     | 'appointments'
-    | 'professionals'
     | 'services'
     | 'categories'
     | 'reviews'
@@ -49,7 +47,6 @@ const MENU_TO_ACCESS_FIELD: Record<
     dashboard: 'canAccessDashboard',
     reports: 'canAccessReports',
     appointments: 'canAccessAppointments',
-    professionals: 'canAccessProfessionals',
     services: 'canAccessServices',
     categories: 'canAccessCategories',
     reviews: 'canAccessReviews',

@@ -102,8 +102,8 @@ type UploadResponse =
               mime: string;
               size: number;
               originalName: string;
-              module?: 'PRODUCTS' | 'PROFESSIONALS';
-              category?: 'products' | 'professionals';
+              module?: 'PRODUCTS';
+              category?: 'products';
           };
       }
     | { ok: false; error?: string };

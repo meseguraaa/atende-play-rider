@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
     LayoutDashboard,
-    Scissors,
     ListChecks,
     Package,
     Wallet,
@@ -40,7 +39,6 @@ type AdminAccessLike = Partial<
         | 'canAccessDashboard'
         | 'canAccessReports'
         | 'canAccessAppointments'
-        | 'canAccessProfessionals'
         | 'canAccessServices'
         | 'canAccessCategories'
         | 'canAccessReviews'
@@ -93,7 +91,6 @@ const ICON_BY_KEY: Record<
     dashboard: LayoutDashboard,
     reports: BarChart3,
     appointments: CalendarCheck,
-    professionals: Scissors,
     services: ListChecks,
     categories: FolderTree,
     reviews: Tag,
@@ -121,13 +118,16 @@ const UNIT_COOKIE_NAME = 'admin_unit_context';
 const UNIT_ALL_VALUE = 'all';
 
 // ✅ Tenant Admin NÃO deve ver menu de Parceiros (agora é Plataforma/AtendePlay)
-const HIDDEN_TENANT_MENU_KEYS = new Set<string>(['partners', 'checkout']);
+const HIDDEN_TENANT_MENU_KEYS = new Set<string>([
+    'partners',
+    'checkout',
+    'professionals',
+]);
 
 // ✅ Ordem visual forçada no NAV
 const MENU_DISPLAY_ORDER: Record<string, number> = {
     dashboard: 10,
     appointments: 20,
-    professionals: 40,
     categories: 50,
     services: 60,
     products: 70,
@@ -187,10 +187,6 @@ function mapAdminHref(link: (typeof ADMIN_MENU)[number]) {
     if (link.menuKey === 'clients')
         return link.href.replace('/clients', '/client');
 
-    // ✅ professionals -> professional (singular)
-    if (link.menuKey === 'professionals')
-        return link.href.replace('/professionals', '/professional');
-
     // ✅ services -> service (singular)
     if (link.menuKey === 'services')
         return link.href.replace('/services', '/service');
@@ -229,7 +225,6 @@ function buildOwnerAccess(): AdminAccessLike {
         canAccessDashboard: true,
         canAccessReports: true,
         canAccessAppointments: true,
-        canAccessProfessionals: true,
         canAccessServices: true,
         canAccessCategories: true,
         canAccessReviews: true,

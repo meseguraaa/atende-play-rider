@@ -75,7 +75,6 @@ type PermissionsUI = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
     canAccessAppointments: boolean;
-    canAccessProfessionals: boolean;
     canAccessServices: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
@@ -319,7 +318,6 @@ function normalizeAdminFromApi(a: AdminApi): AdminUI {
             canAccessDashboard: !!a.permissions?.canAccessDashboard,
             canAccessReports: !!a.permissions?.canAccessReports,
             canAccessAppointments: !!a.permissions?.canAccessAppointments,
-            canAccessProfessionals: !!a.permissions?.canAccessProfessionals,
             canAccessServices: !!a.permissions?.canAccessServices,
             canAccessCategories: !!a.permissions?.canAccessCategories,
             canAccessReviews: !!a.permissions?.canAccessReviews,
@@ -409,7 +407,6 @@ const PERMISSION_LABELS: Partial<Record<keyof PermissionsUI, string>> = {
     canAccessDashboard: 'Dashboard',
     canAccessReports: 'Relatórios',
     canAccessAppointments: 'Agendamentos',
-    canAccessProfessionals: 'Profissionais',
     canAccessServices: 'Serviços',
     canAccessCategories: 'Categorias',
     canAccessReviews: 'Avaliações',
@@ -427,7 +424,6 @@ function clonePerms(p: PermissionsUI): PermissionsUI {
         canAccessDashboard: !!p.canAccessDashboard,
         canAccessReports: !!p.canAccessReports,
         canAccessAppointments: !!p.canAccessAppointments,
-        canAccessProfessionals: !!p.canAccessProfessionals,
         canAccessServices: !!p.canAccessServices,
         canAccessCategories: !!p.canAccessCategories,
         canAccessReviews: !!p.canAccessReviews,
@@ -1406,7 +1402,6 @@ export default function AdminSettingsClient() {
         canAccessDashboard: true,
         canAccessReports: false,
         canAccessAppointments: true,
-        canAccessProfessionals: false,
         canAccessServices: false,
         canAccessCategories: false,
         canAccessReviews: false,
@@ -1651,7 +1646,6 @@ export default function AdminSettingsClient() {
                 canAccessDashboard: true,
                 canAccessReports: false,
                 canAccessAppointments: true,
-                canAccessProfessionals: false,
                 canAccessServices: false,
                 canAccessCategories: false,
                 canAccessReviews: false,

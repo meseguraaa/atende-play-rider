@@ -28,7 +28,11 @@ type AdminAccessLike = {
     canAccessCommunication: boolean;
 };
 
-const HIDDEN_TENANT_MENU_KEYS = new Set<string>(['partners', 'checkout']);
+const HIDDEN_TENANT_MENU_KEYS = new Set<string>([
+    'partners',
+    'checkout',
+    'professionals',
+]);
 
 function getFirstAllowedEnabledHref(
     access: AdminAccessLike | null

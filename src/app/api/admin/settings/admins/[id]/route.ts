@@ -7,7 +7,6 @@ type PermissionsPayload = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
     canAccessAppointments: boolean;
-    canAccessProfessionals: boolean;
     canAccessServices: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
@@ -40,9 +39,6 @@ function normalizePermissions(
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
         canAccessReports: Boolean(partial?.canAccessReports ?? false),
         canAccessAppointments: Boolean(partial?.canAccessAppointments ?? true),
-        canAccessProfessionals: Boolean(
-            partial?.canAccessProfessionals ?? false
-        ),
         canAccessServices: Boolean(partial?.canAccessServices ?? false),
         canAccessCategories: Boolean(partial?.canAccessCategories ?? false),
         canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
@@ -68,7 +64,6 @@ function sanitizePatchPermissions(
         'canAccessDashboard',
         'canAccessReports',
         'canAccessAppointments',
-        'canAccessProfessionals',
         'canAccessServices',
         'canAccessCategories',
         'canAccessReviews',
@@ -115,10 +110,6 @@ function mergePermissions(params: {
             p.canAccessAppointments !== undefined
                 ? Boolean(p.canAccessAppointments)
                 : params.current.canAccessAppointments,
-        canAccessProfessionals:
-            p.canAccessProfessionals !== undefined
-                ? Boolean(p.canAccessProfessionals)
-                : params.current.canAccessProfessionals,
         canAccessServices:
             p.canAccessServices !== undefined
                 ? Boolean(p.canAccessServices)
@@ -261,7 +252,6 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                     canAccessDashboard: true,
                     canAccessReports: true,
                     canAccessAppointments: true,
-                    canAccessProfessionals: true,
                     canAccessServices: true,
                     canAccessCategories: true,
                     canAccessReviews: true,
@@ -282,8 +272,6 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                       canAccessReports: !!currentAccess.canAccessReports,
                       canAccessAppointments:
                           !!currentAccess.canAccessAppointments,
-                      canAccessProfessionals:
-                          !!currentAccess.canAccessProfessionals,
                       canAccessServices: !!currentAccess.canAccessServices,
                       canAccessCategories: !!currentAccess.canAccessCategories,
                       canAccessReviews: !!currentAccess.canAccessReviews,

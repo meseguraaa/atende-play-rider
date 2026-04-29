@@ -21,13 +21,12 @@ function getUploadsRootDir() {
     return path.resolve(raw);
 }
 
-type UploadModule = 'PRODUCTS' | 'PROFESSIONALS' | 'PARTNERS' | 'RIDES';
+type UploadModule = 'PRODUCTS' | 'PARTNERS' | 'RIDES';
 
-type UploadCategory = 'products' | 'professionals' | 'partners' | 'rides';
+type UploadCategory = 'products' | 'partners' | 'rides';
 
 const MODULE_TO_CATEGORY: Record<UploadModule, UploadCategory> = {
     PRODUCTS: 'products',
-    PROFESSIONALS: 'professionals',
     PARTNERS: 'partners',
     RIDES: 'rides',
 };
@@ -36,7 +35,6 @@ type AdminModuleLike = Parameters<typeof requireAdminForModule>[0];
 
 const MODULE_TO_PERMISSION: Record<UploadModule, AdminModuleLike> = {
     PRODUCTS: 'PRODUCTS' as AdminModuleLike,
-    PROFESSIONALS: 'PROFESSIONALS' as AdminModuleLike,
     PARTNERS: 'SETTINGS' as AdminModuleLike,
     RIDES: 'RIDES' as AdminModuleLike,
 };
@@ -90,7 +88,6 @@ function parseModule(v: unknown): UploadModule | null {
     const raw = normalizeString(v).toUpperCase();
 
     if (raw === 'PRODUCTS') return 'PRODUCTS';
-    if (raw === 'PROFESSIONALS') return 'PROFESSIONALS';
     if (raw === 'PARTNERS') return 'PARTNERS';
     if (raw === 'RIDES') return 'RIDES';
 
@@ -131,11 +128,11 @@ async function ensureWritableDir(dir: string) {
  * POST /api/admin/uploads
  * multipart/form-data:
  * - file: File obrigatório
- * - module: "PRODUCTS" | "PROFESSIONALS" | "PARTNERS" | "RIDES"
+ * - module: "PRODUCTS" | "PARTNERS" | "RIDES"
  *
  * Salva em:
- * - PRODUCTS/PROFESSIONALS/RIDES: <UPLOAD_DIR>/<companyId>/<category>/<uuid>.<ext>
- * - PARTNERS plataforma:          <UPLOAD_DIR>/global/partners/<uuid>.<ext>
+ * - PRODUCTS/RIDES:     <UPLOAD_DIR>/<companyId>/<category>/<uuid>.<ext>
+ * - PARTNERS plataforma: <UPLOAD_DIR>/global/partners/<uuid>.<ext>
  *
  * Retorna:
  * - /media/<namespace>/<category>/<fileName>
@@ -157,7 +154,7 @@ export async function POST(request: Request) {
         const module = parseModule(formGet(form, 'module'));
         if (!module) {
             return jsonErr(
-                'Campo "module" é obrigatório e deve ser "PRODUCTS", "PROFESSIONALS", "PARTNERS" ou "RIDES".',
+                'Campo "module" é obrigatório e deve ser "PRODUCTS", "PARTNERS" ou "RIDES".',
                 400
             );
         }

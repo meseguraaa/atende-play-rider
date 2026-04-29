@@ -8,7 +8,6 @@ type PermissionsPayload = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
     canAccessAppointments: boolean;
-    canAccessProfessionals: boolean;
     canAccessServices: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
@@ -60,9 +59,6 @@ function normalizePermissions(
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
         canAccessReports: Boolean(partial?.canAccessReports ?? false),
         canAccessAppointments: Boolean(partial?.canAccessAppointments ?? true),
-        canAccessProfessionals: Boolean(
-            partial?.canAccessProfessionals ?? false
-        ),
         canAccessServices: Boolean(partial?.canAccessServices ?? false),
         canAccessCategories: Boolean(partial?.canAccessCategories ?? false),
         canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
@@ -129,7 +125,6 @@ export async function GET() {
                       canAccessDashboard: true,
                       canAccessReports: true,
                       canAccessAppointments: true,
-                      canAccessProfessionals: true,
                       canAccessServices: true,
                       canAccessCategories: true,
                       canAccessReviews: true,
@@ -152,7 +147,6 @@ export async function GET() {
                 canAccessDashboard: !!a.canAccessDashboard,
                 canAccessReports: !!a.canAccessReports,
                 canAccessAppointments: !!a.canAccessAppointments,
-                canAccessProfessionals: !!a.canAccessProfessionals,
                 canAccessServices: !!a.canAccessServices,
                 canAccessCategories: !!a.canAccessCategories,
                 canAccessCommunication: !!a.canAccessCommunication,
@@ -179,7 +173,6 @@ export async function GET() {
                                   canAccessDashboard: true,
                                   canAccessReports: true,
                                   canAccessAppointments: true,
-                                  canAccessProfessionals: true,
                                   canAccessServices: true,
                                   canAccessReviews: true,
                                   canAccessProducts: true,

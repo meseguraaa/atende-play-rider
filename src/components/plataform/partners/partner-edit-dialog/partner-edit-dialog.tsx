@@ -78,8 +78,8 @@ type UploadResponse =
               mime: string;
               size: number;
               originalName: string;
-              module?: 'PRODUCTS' | 'PROFESSIONALS' | 'PARTNERS';
-              category?: 'products' | 'professionals' | 'partners';
+              module?: 'PRODUCTS' | 'PARTNERS';
+              category?: 'products' | 'partners';
           };
       }
     | { ok: false; error?: string };
