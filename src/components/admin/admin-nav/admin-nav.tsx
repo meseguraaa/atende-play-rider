@@ -39,7 +39,6 @@ type AdminAccessLike = Partial<
         | 'canAccessDashboard'
         | 'canAccessReports'
         | 'canAccessAppointments'
-        | 'canAccessServices'
         | 'canAccessCategories'
         | 'canAccessReviews'
         | 'canAccessProducts'
@@ -91,7 +90,6 @@ const ICON_BY_KEY: Record<
     dashboard: LayoutDashboard,
     reports: BarChart3,
     appointments: CalendarCheck,
-    services: ListChecks,
     categories: FolderTree,
     reviews: Tag,
     faq: CircleHelp,
@@ -187,10 +185,6 @@ function mapAdminHref(link: (typeof ADMIN_MENU)[number]) {
     if (link.menuKey === 'clients')
         return link.href.replace('/clients', '/client');
 
-    // ✅ services -> service (singular)
-    if (link.menuKey === 'services')
-        return link.href.replace('/services', '/service');
-
     // ✅ plans -> plan (singular)
     if (link.menuKey === 'plans') return link.href;
 
@@ -225,7 +219,6 @@ function buildOwnerAccess(): AdminAccessLike {
         canAccessDashboard: true,
         canAccessReports: true,
         canAccessAppointments: true,
-        canAccessServices: true,
         canAccessCategories: true,
         canAccessReviews: true,
         canAccessProducts: true,

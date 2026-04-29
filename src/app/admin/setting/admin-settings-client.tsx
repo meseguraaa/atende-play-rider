@@ -75,7 +75,6 @@ type PermissionsUI = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
     canAccessAppointments: boolean;
-    canAccessServices: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
     canAccessFaq: boolean;
@@ -318,7 +317,6 @@ function normalizeAdminFromApi(a: AdminApi): AdminUI {
             canAccessDashboard: !!a.permissions?.canAccessDashboard,
             canAccessReports: !!a.permissions?.canAccessReports,
             canAccessAppointments: !!a.permissions?.canAccessAppointments,
-            canAccessServices: !!a.permissions?.canAccessServices,
             canAccessCategories: !!a.permissions?.canAccessCategories,
             canAccessReviews: !!a.permissions?.canAccessReviews,
             canAccessFaq: !!a.permissions?.canAccessFaq,
@@ -407,7 +405,6 @@ const PERMISSION_LABELS: Partial<Record<keyof PermissionsUI, string>> = {
     canAccessDashboard: 'Dashboard',
     canAccessReports: 'Relatórios',
     canAccessAppointments: 'Agendamentos',
-    canAccessServices: 'Serviços',
     canAccessCategories: 'Categorias',
     canAccessReviews: 'Avaliações',
     canAccessFaq: 'Dúvidas',
@@ -424,7 +421,6 @@ function clonePerms(p: PermissionsUI): PermissionsUI {
         canAccessDashboard: !!p.canAccessDashboard,
         canAccessReports: !!p.canAccessReports,
         canAccessAppointments: !!p.canAccessAppointments,
-        canAccessServices: !!p.canAccessServices,
         canAccessCategories: !!p.canAccessCategories,
         canAccessReviews: !!p.canAccessReviews,
         canAccessFaq: !!p.canAccessFaq,
@@ -1402,7 +1398,6 @@ export default function AdminSettingsClient() {
         canAccessDashboard: true,
         canAccessReports: false,
         canAccessAppointments: true,
-        canAccessServices: false,
         canAccessCategories: false,
         canAccessReviews: false,
         canAccessFaq: false,
@@ -1646,7 +1641,6 @@ export default function AdminSettingsClient() {
                 canAccessDashboard: true,
                 canAccessReports: false,
                 canAccessAppointments: true,
-                canAccessServices: false,
                 canAccessCategories: false,
                 canAccessReviews: false,
                 canAccessFaq: false,

@@ -5,7 +5,6 @@ export type AdminAccessLike = Partial<
         | 'canAccessDashboard'
         | 'canAccessReports'
         | 'canAccessAppointments'
-        | 'canAccessServices'
         | 'canAccessCategories'
         | 'canAccessReviews'
         | 'canAccessProducts'
@@ -26,7 +25,6 @@ export type AdminMenuKey =
     | 'dashboard'
     | 'reports'
     | 'appointments'
-    | 'services'
     | 'categories'
     | 'reviews'
     | 'products'
@@ -47,7 +45,6 @@ const MENU_TO_ACCESS_FIELD: Record<
     dashboard: 'canAccessDashboard',
     reports: 'canAccessReports',
     appointments: 'canAccessAppointments',
-    services: 'canAccessServices',
     categories: 'canAccessCategories',
     reviews: 'canAccessReviews',
     products: 'canAccessProducts',
@@ -62,11 +59,6 @@ const MENU_TO_ACCESS_FIELD: Record<
     faqReports: 'canAccessFaqReports',
 };
 
-/**
- * Retorna se o menu/item pode ser exibido para o admin atual.
- * - Se adminAccess vier null/undefined: por padrão não mostra (fail-closed).
- * - Se a flag específica for true: mostra.
- */
 export function canAccess(
     adminAccess: AdminAccessLike | null | undefined,
     key: AdminMenuKey

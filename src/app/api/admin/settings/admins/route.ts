@@ -8,7 +8,6 @@ type PermissionsPayload = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
     canAccessAppointments: boolean;
-    canAccessServices: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
     canAccessFaq: boolean;
@@ -59,7 +58,6 @@ function normalizePermissions(
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
         canAccessReports: Boolean(partial?.canAccessReports ?? false),
         canAccessAppointments: Boolean(partial?.canAccessAppointments ?? true),
-        canAccessServices: Boolean(partial?.canAccessServices ?? false),
         canAccessCategories: Boolean(partial?.canAccessCategories ?? false),
         canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
         canAccessFaq: Boolean(partial?.canAccessFaq ?? false),
@@ -125,7 +123,6 @@ export async function GET() {
                       canAccessDashboard: true,
                       canAccessReports: true,
                       canAccessAppointments: true,
-                      canAccessServices: true,
                       canAccessCategories: true,
                       canAccessReviews: true,
                       canAccessFaq: true,
@@ -147,7 +144,6 @@ export async function GET() {
                 canAccessDashboard: !!a.canAccessDashboard,
                 canAccessReports: !!a.canAccessReports,
                 canAccessAppointments: !!a.canAccessAppointments,
-                canAccessServices: !!a.canAccessServices,
                 canAccessCategories: !!a.canAccessCategories,
                 canAccessCommunication: !!a.canAccessCommunication,
                 canAccessReviews: !!a.canAccessReviews,
@@ -173,7 +169,6 @@ export async function GET() {
                                   canAccessDashboard: true,
                                   canAccessReports: true,
                                   canAccessAppointments: true,
-                                  canAccessServices: true,
                                   canAccessReviews: true,
                                   canAccessProducts: true,
                                   canAccessFaq: true,

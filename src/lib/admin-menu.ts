@@ -8,15 +8,6 @@ export type AdminMenuItem = {
     enabled: boolean;
 };
 
-/**
- * Desativar módulos temporariamente (sem mexer em permissões):
- * - Use ENV: ADMIN_DISABLED_MODULES="reviews,finance"
- * - Ou no client: NEXT_PUBLIC_ADMIN_DISABLED_MODULES="reviews,finance"
- *
- * Observação:
- * - Faz match por "menuKey" (ex: "reviews", "finance", "settings", "faq")
- * - Espaços são ignorados
- */
 function readDisabledKeys(): Set<string> {
     const raw =
         process.env.ADMIN_DISABLED_MODULES ??
@@ -34,15 +25,11 @@ function readDisabledKeys(): Set<string> {
 const DISABLED_KEYS = readDisabledKeys();
 
 function isEnabled(menuKey: AdminMenuKey): boolean {
-    // ✅ partners agora é SOMENTE da Plataforma (AtendePlay), não do Admin tenant
     if (menuKey === 'partners') return false;
 
     return !DISABLED_KEYS.has(String(menuKey));
 }
 
-/**
- * ✅ Fonte única do menu (ordem + href + key).
- */
 export const ADMIN_MENU: AdminMenuItem[] = [
     {
         href: '/admin/dashboard',
@@ -57,35 +44,23 @@ export const ADMIN_MENU: AdminMenuItem[] = [
         enabled: isEnabled('appointments'),
     },
     {
-        href: '/admin/services',
-        label: 'Serviços',
-        menuKey: 'services',
-        enabled: isEnabled('services'),
-    },
-
-    // 🆕 PLANOS
-    {
         href: '/admin/plans',
         label: 'Planos',
         menuKey: 'plans',
         enabled: isEnabled('plans'),
     },
-
     {
         href: '/admin/categories',
         label: 'Categorias',
         menuKey: 'categories',
         enabled: isEnabled('categories'),
     },
-
-    // ✅ NOVO: FAQ / Dúvidas
     {
         href: '/admin/faq',
         label: 'Dúvidas',
         menuKey: 'faq',
         enabled: isEnabled('faq'),
     },
-
     {
         href: '/admin/products',
         label: 'Produtos',
@@ -93,7 +68,6 @@ export const ADMIN_MENU: AdminMenuItem[] = [
         enabled: isEnabled('products'),
     },
     {
-        // ✅ Parceiros desativado no Admin (ficou só na Plataforma)
         href: '/admin/partners',
         label: 'Parceiros',
         menuKey: 'partners',
@@ -143,9 +117,6 @@ export const ADMIN_MENU: AdminMenuItem[] = [
     },
 ];
 
-/**
- * Helper: retorna o primeiro href habilitado na ordem do menu.
- */
 export function getFirstEnabledAdminHref(): string | null {
     return ADMIN_MENU.find((i) => i.enabled)?.href ?? null;
 }

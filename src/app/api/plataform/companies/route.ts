@@ -137,7 +137,6 @@ const ADMIN_ACCESS_ALL_TRUE = {
     canAccessDashboard: true,
     canAccessReports: true,
     canAccessAppointments: true,
-    canAccessServices: true,
     canAccessReviews: true,
     canAccessProducts: true,
     canAccessPartners: true,

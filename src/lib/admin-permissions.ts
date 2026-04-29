@@ -14,7 +14,6 @@ export type AdminModule =
     | 'DASHBOARD'
     | 'REPORTS'
     | 'APPOINTMENTS'
-    | 'SERVICES'
     | 'CATEGORIES'
     | 'REVIEWS'
     | 'PRODUCTS'
@@ -43,7 +42,6 @@ type AdminAccessFlag =
     | 'canAccessDashboard'
     | 'canAccessReports'
     | 'canAccessAppointments'
-    | 'canAccessServices'
     | 'canAccessCategories'
     | 'canAccessReviews'
     | 'canAccessProducts'
@@ -62,7 +60,6 @@ const ADMIN_ACCESS_SELECT: AdminAccessSelect = {
     canAccessDashboard: true,
     canAccessReports: true,
     canAccessAppointments: true,
-    canAccessServices: true,
     canAccessCategories: true,
     canAccessReviews: true,
     canAccessProducts: true,
@@ -85,8 +82,6 @@ function moduleToAccessField(module: AdminModule): AdminAccessFlag | null {
             return 'canAccessReports';
         case 'APPOINTMENTS':
             return 'canAccessAppointments';
-        case 'SERVICES':
-            return 'canAccessServices';
         case 'CATEGORIES':
             return 'canAccessCategories';
         case 'REVIEWS':
@@ -230,7 +225,6 @@ type ModuleRoute = { module: AdminModule; href: string };
  */
 const FALLBACK_ROUTES: ModuleRoute[] = [
     { module: 'APPOINTMENTS', href: '/admin/appointments' },
-    { module: 'SERVICES', href: '/admin/services' },
     { module: 'CATEGORIES', href: '/admin/categories' },
     { module: 'PRODUCTS', href: '/admin/products' },
     { module: 'PLANS', href: '/admin/plans' },

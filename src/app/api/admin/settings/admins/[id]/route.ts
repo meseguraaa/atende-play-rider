@@ -7,7 +7,6 @@ type PermissionsPayload = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
     canAccessAppointments: boolean;
-    canAccessServices: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
     canAccessFaq: boolean;
@@ -39,7 +38,6 @@ function normalizePermissions(
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
         canAccessReports: Boolean(partial?.canAccessReports ?? false),
         canAccessAppointments: Boolean(partial?.canAccessAppointments ?? true),
-        canAccessServices: Boolean(partial?.canAccessServices ?? false),
         canAccessCategories: Boolean(partial?.canAccessCategories ?? false),
         canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
         canAccessCommunication: Boolean(
@@ -64,7 +62,6 @@ function sanitizePatchPermissions(
         'canAccessDashboard',
         'canAccessReports',
         'canAccessAppointments',
-        'canAccessServices',
         'canAccessCategories',
         'canAccessReviews',
         'canAccessFaq',
@@ -110,10 +107,6 @@ function mergePermissions(params: {
             p.canAccessAppointments !== undefined
                 ? Boolean(p.canAccessAppointments)
                 : params.current.canAccessAppointments,
-        canAccessServices:
-            p.canAccessServices !== undefined
-                ? Boolean(p.canAccessServices)
-                : params.current.canAccessServices,
         canAccessCategories:
             p.canAccessCategories !== undefined
                 ? Boolean(p.canAccessCategories)
@@ -252,7 +245,6 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                     canAccessDashboard: true,
                     canAccessReports: true,
                     canAccessAppointments: true,
-                    canAccessServices: true,
                     canAccessCategories: true,
                     canAccessReviews: true,
                     canAccessFaq: true,
@@ -272,7 +264,6 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                       canAccessReports: !!currentAccess.canAccessReports,
                       canAccessAppointments:
                           !!currentAccess.canAccessAppointments,
-                      canAccessServices: !!currentAccess.canAccessServices,
                       canAccessCategories: !!currentAccess.canAccessCategories,
                       canAccessReviews: !!currentAccess.canAccessReviews,
                       canAccessFaq: !!currentAccess.canAccessFaq,
