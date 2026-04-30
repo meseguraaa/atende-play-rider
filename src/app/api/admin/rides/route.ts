@@ -106,12 +106,6 @@ export async function GET() {
                         arrivedHomeAt: true,
                     },
                 },
-                unit: {
-                    select: {
-                        id: true,
-                        name: true,
-                    },
-                },
             },
         });
 
@@ -129,8 +123,6 @@ export async function GET() {
             return {
                 id: ride.id,
                 companyId: ride.companyId,
-                unitId: ride.unitId,
-                unit: ride.unit,
                 title: ride.title,
                 destination: ride.destination,
                 description: ride.description,
@@ -175,10 +167,6 @@ export async function POST(request: Request) {
         const destination = normalizeString(body.destination);
         const description = normalizeNullableString(body.description);
         const observation = normalizeNullableString(body.observation);
-        const requestedUnitId = normalizeNullableString(body.unitId);
-        const sessionUnitId = normalizeNullableString(session.unitId);
-
-        const unitId = sessionUnitId || requestedUnitId;
 
         const startsAt = normalizeDate(body.startsAt);
         const endsAt = normalizeDate(body.endsAt);
@@ -199,37 +187,9 @@ export async function POST(request: Request) {
             return jsonErr('Informe pelo menos um ponto de encontro.');
         }
 
-        let validUnitId: string | null = null;
-
-        if (unitId) {
-            const unit = await prisma.unit.findFirst({
-                where: {
-                    id: unitId,
-                    companyId,
-                    isActive: true,
-                },
-                select: {
-                    id: true,
-                },
-            });
-
-            if (!unit) return jsonErr('Unidade inválida ou inativa.', 404);
-
-            if (
-                sessionUnitId &&
-                requestedUnitId &&
-                sessionUnitId !== requestedUnitId
-            ) {
-                return jsonErr('Unidade inválida para o contexto atual.', 403);
-            }
-
-            validUnitId = unit.id;
-        }
-
         const ride = await prisma.ride.create({
             data: {
                 companyId,
-                unitId: validUnitId,
                 title,
                 destination,
                 description,

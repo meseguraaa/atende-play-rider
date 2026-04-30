@@ -2,7 +2,7 @@
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 
-import { AdminNav, type UnitOption } from '@/components/admin/admin-nav';
+import { AdminNav } from '@/components/admin/admin-nav';
 import { prisma } from '@/lib/prisma';
 import { getCurrentPainelUser } from '@/lib/painel-session';
 import AdminPermissionToast from './admin-permission-toast';
@@ -144,41 +144,6 @@ export default async function AdminLayout({
         }
     }
 
-    const units = await prisma.unit.findMany({
-        where: {
-            companyId,
-            isActive: true,
-        },
-        select: {
-            id: true,
-            name: true,
-        },
-        orderBy: {
-            name: 'asc',
-        },
-    });
-
-    let unitOptions: UnitOption[] = [];
-
-    if (isOwner) {
-        unitOptions = units.map((u) => ({ id: u.id, name: u.name }));
-    } else {
-        const allowed = await prisma.adminUnitAccess.findMany({
-            where: {
-                companyId,
-                userId,
-            },
-            select: {
-                unitId: true,
-            },
-        });
-
-        const allowedIds = new Set(allowed.map((a) => a.unitId));
-        unitOptions = units
-            .filter((u) => allowedIds.has(u.id))
-            .map((u) => ({ id: u.id, name: u.name }));
-    }
-
     return (
         <div className="min-h-screen bg-background-primary">
             <AdminPermissionToast />
@@ -186,7 +151,6 @@ export default async function AdminLayout({
             <AdminNav
                 adminAccess={adminAccess ?? undefined}
                 isOwner={isOwner}
-                unitOptions={unitOptions}
             />
 
             <main className="pl-14">

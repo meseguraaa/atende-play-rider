@@ -51,6 +51,7 @@ function getCookieDomainForHost(host: string): string | undefined {
     const cleanHost = String(host || '')
         .trim()
         .toLowerCase();
+
     if (!cleanHost) return undefined;
 
     if (cleanHost === 'localhost' || cleanHost.endsWith('.localhost')) {
@@ -69,6 +70,7 @@ function getTenantSlugFromHost(host: string): string | null {
         .trim()
         .toLowerCase()
         .split(':')[0];
+
     if (!cleanHost) return null;
 
     if (cleanHost === 'localhost') return DEV_DEFAULT_TENANT;
@@ -114,9 +116,6 @@ export type PainelSessionPayload = {
 
     tenantSlug?: string;
     companyId?: string;
-
-    unitId?: string | null;
-    canSeeAllUnits?: boolean;
 };
 
 function isPlatformRole(role: string) {
@@ -174,7 +173,6 @@ function defaultAdminPerms(): AdminAccessPerms {
 
 const adminAccessSelect = {
     companyId: true,
-    unitId: true,
     canAccessDashboard: true,
     canAccessReports: true,
     canAccessRides: true,
@@ -261,8 +259,6 @@ export async function createSessionToken(
             name,
             tenantSlug,
             companyId,
-            unitId: null,
-            canSeeAllUnits: true,
         };
 
         return await new SignJWT(payload)
@@ -281,7 +277,6 @@ export async function createSessionToken(
             data: {
                 companyId,
                 userId,
-                unitId: null,
                 ...defaultAdminPerms(),
             },
             select: adminAccessSelect,
@@ -295,8 +290,6 @@ export async function createSessionToken(
         name,
         tenantSlug,
         companyId,
-        unitId: access.unitId == null ? null : String(access.unitId),
-        canSeeAllUnits: false,
     };
 
     return await new SignJWT(payload)
@@ -327,11 +320,6 @@ export async function verifySessionToken(
             role: role as PainelRole,
             email: String(p?.email ?? ''),
             name: (p?.name ?? null) as string | null,
-            unitId: p?.unitId == null ? null : String(p.unitId),
-            canSeeAllUnits:
-                typeof p?.canSeeAllUnits === 'boolean'
-                    ? p.canSeeAllUnits
-                    : undefined,
         };
 
         if (isPlatformRole(role)) {

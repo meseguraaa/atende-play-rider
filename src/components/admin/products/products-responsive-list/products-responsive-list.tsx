@@ -13,7 +13,6 @@ type CategoryOption = {
     id: string;
     name: string;
     isActive: boolean;
-    showInServices: boolean;
     showInProducts: boolean;
 };
 

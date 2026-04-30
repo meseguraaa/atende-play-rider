@@ -136,12 +136,11 @@ function normalizeSlug(raw: unknown): string | null {
 const ADMIN_ACCESS_ALL_TRUE = {
     canAccessDashboard: true,
     canAccessReports: true,
-    canAccessAppointments: true,
+    canAccessRides: true,
     canAccessReviews: true,
     canAccessProducts: true,
     canAccessPartners: true,
-    canAccessClients: true,
-    canAccessClientLevels: true,
+    canAccessMembers: true,
     canAccessFinance: true,
     canAccessSettings: true,
 } as const;

@@ -13,7 +13,6 @@ type CategoryOption = {
     id: string;
     name: string;
     isActive: boolean;
-    showInServices: boolean;
     showInProducts: boolean;
 };
 
@@ -24,10 +23,7 @@ type ProductRowProps = {
 
 const MAX_TEXT_LENGTH = 50;
 
-function truncate(
-    text: string | null | undefined,
-    max: number = MAX_TEXT_LENGTH
-): string {
+function truncate(text: string | null | undefined, max = MAX_TEXT_LENGTH) {
     if (!text) return '';
     if (text.length <= max) return text;
     return text.slice(0, max - 1) + '…';
@@ -79,12 +75,11 @@ function getCategoryText(product: ProductForRow) {
 }
 
 function ProductBadges({ product }: { product: ProductForRow }) {
-    const birthdayBenefitEnabled = Boolean(product.birthdayBenefitEnabled);
+    const birthdayBenefitEnabled = false;
     const hasLevelPrices = Boolean(product.hasLevelPrices);
     const isFeatured = Boolean(product.isFeatured);
 
-    const hasAnyBadge = isFeatured || birthdayBenefitEnabled || hasLevelPrices;
-    if (!hasAnyBadge) return null;
+    if (!isFeatured && !birthdayBenefitEnabled && !hasLevelPrices) return null;
 
     return (
         <div className="flex flex-wrap items-center gap-2">
@@ -93,13 +88,11 @@ function ProductBadges({ product }: { product: ProductForRow }) {
                     ⭐ Destaque
                 </Badge>
             )}
-
             {hasLevelPrices && (
                 <Badge title="Este produto tem descontos por nível.">
                     💎 Níveis
                 </Badge>
             )}
-
             {birthdayBenefitEnabled && (
                 <Badge title="Este produto tem benefício de aniversário.">
                     🎂 Aniversário
@@ -111,7 +104,6 @@ function ProductBadges({ product }: { product: ProductForRow }) {
 
 function useSafeProductImage(imageUrl: string) {
     const [imgFailed, setImgFailed] = React.useState(false);
-
     const imgSrc = String(imageUrl ?? '').trim();
     const shouldShowImg = Boolean(imgSrc) && !imgFailed;
 
@@ -130,23 +122,22 @@ async function toggleProductActive(productId: string) {
     });
 
     const json = (await res.json().catch(() => null)) as
-        | { ok: true; data?: any }
+        | { ok: true; data?: unknown }
         | { ok: false; error?: string }
         | null;
 
-    if (!res.ok || !json || (json as any).ok !== true) {
+    if (!res.ok || !json || json.ok !== true) {
         const msg =
-            (json as any)?.error ||
-            'Não foi possível alterar o status do produto.';
+            json && json.ok === false && json.error
+                ? json.error
+                : 'Não foi possível alterar o status do produto.';
+
         return { ok: false as const, error: msg };
     }
 
     return { ok: true as const };
 }
 
-/**
- * ✅ DESKTOP: linha de tabela
- */
 export function ProductRow({ product, categories = [] }: ProductRowProps) {
     const router = useRouter();
     const [isPending, startTransition] = React.useTransition();
@@ -182,12 +173,10 @@ export function ProductRow({ product, categories = [] }: ProductRowProps) {
 
     return (
         <tr className="border-t border-border-primary">
-            {/* NOME + FOTO */}
             <td className="px-4 py-3">
                 <div className="flex items-center gap-4">
                     <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border-primary bg-background-secondary">
                         {shouldShowImg ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={imgSrc}
                                 alt={product.name}
@@ -211,29 +200,14 @@ export function ProductRow({ product, categories = [] }: ProductRowProps) {
                 </div>
             </td>
 
-            {/* UNIDADE */}
-            <td className="px-4 py-3">
-                <div className="flex flex-col gap-1">
-                    <span className="text-content-primary">
-                        {product.unitName || '—'}
-                    </span>
-                    <span className="text-[11px] text-content-secondary">
-                        Estoque da unidade
-                    </span>
-                </div>
-            </td>
-
-            {/* PREÇO */}
             <td className="px-4 py-3 whitespace-nowrap">
                 {MoneyBRL(product.price)}
             </td>
 
-            {/* COMISSÃO */}
             <td className="px-4 py-3 whitespace-nowrap">
                 {CommissionText(product.barberPercentage)}
             </td>
 
-            {/* CATEGORIAS */}
             <td
                 className="px-4 py-3 text-content-secondary"
                 title={categoryText}
@@ -241,12 +215,10 @@ export function ProductRow({ product, categories = [] }: ProductRowProps) {
                 {truncate(categoryText, 70) || '—'}
             </td>
 
-            {/* ESTOQUE */}
             <td className="px-4 py-3 whitespace-nowrap">
                 {product.stockQuantity} un.
             </td>
 
-            {/* PRAZO */}
             <td className="px-4 py-3">
                 <span className="text-content-primary">{deadlineText}</span>
                 <span className="block text-[11px] text-content-secondary">
@@ -254,7 +226,6 @@ export function ProductRow({ product, categories = [] }: ProductRowProps) {
                 </span>
             </td>
 
-            {/* AÇÕES */}
             <td className="px-4 py-3">
                 <div className="flex items-center justify-end gap-3">
                     <ProductEditDialog
@@ -269,7 +240,6 @@ export function ProductRow({ product, categories = [] }: ProductRowProps) {
                         className="border-border-primary hover:bg-muted/40"
                         onClick={handleToggleActive}
                         disabled={isPending}
-                        title={isPending ? 'Processando...' : undefined}
                     >
                         {isPending
                             ? 'Aguarde...'
@@ -283,9 +253,6 @@ export function ProductRow({ product, categories = [] }: ProductRowProps) {
     );
 }
 
-/**
- * ✅ MOBILE: card
- */
 export function ProductRowMobile({
     product,
     categories = [],
@@ -328,7 +295,6 @@ export function ProductRowMobile({
                 <div className="flex items-start gap-3">
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border-primary bg-background-secondary">
                         {shouldShowImg ? (
-                            // eslint-disable-next-line @next/next/no-img-element
                             <img
                                 src={imgSrc}
                                 alt={product.name}
@@ -343,55 +309,30 @@ export function ProductRowMobile({
                     </div>
 
                     <div className="min-w-0 flex-1 space-y-2">
-                        <div className="min-w-0">
-                            <p className="text-paragraph-medium-size font-semibold text-content-primary truncate">
-                                {displayName}
-                            </p>
-                            <p className="text-xs text-content-secondary truncate">
-                                {product.unitName || '—'}
-                            </p>
-                        </div>
+                        <p className="text-paragraph-medium-size font-semibold text-content-primary truncate">
+                            {displayName}
+                        </p>
 
                         <ProductBadges product={product} />
                     </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div className="space-y-1">
-                        <p className="text-content-tertiary">Preço</p>
-                        <p className="text-content-primary font-medium">
-                            {MoneyBRL(product.price)}
-                        </p>
-                    </div>
-
-                    <div className="space-y-1">
-                        <p className="text-content-tertiary">Comissão</p>
-                        <p className="text-content-primary font-medium">
-                            {CommissionText(product.barberPercentage)}
-                        </p>
-                    </div>
-
-                    <div className="space-y-1">
-                        <p className="text-content-tertiary">Categorias</p>
-                        <p
-                            className="text-content-secondary truncate"
-                            title={categoryText}
-                        >
-                            {categoryText}
-                        </p>
-                    </div>
-
-                    <div className="space-y-1">
-                        <p className="text-content-tertiary">Estoque</p>
-                        <p className="text-content-secondary">
-                            {product.stockQuantity} un.
-                        </p>
-                    </div>
-
-                    <div className="space-y-1">
-                        <p className="text-content-tertiary">Prazo</p>
-                        <p className="text-content-secondary">{deadlineText}</p>
-                    </div>
+                    <Info label="Preço" value={MoneyBRL(product.price)} />
+                    <Info
+                        label="Comissão"
+                        value={CommissionText(product.barberPercentage)}
+                    />
+                    <Info
+                        label="Categorias"
+                        value={categoryText}
+                        title={categoryText}
+                    />
+                    <Info
+                        label="Estoque"
+                        value={`${product.stockQuantity} un.`}
+                    />
+                    <Info label="Prazo" value={deadlineText} />
                 </div>
 
                 <div className="pt-2 space-y-2">
@@ -412,7 +353,6 @@ export function ProductRowMobile({
                             className="border-border-primary hover:bg-muted/40"
                             onClick={handleToggleActive}
                             disabled={isPending}
-                            title={isPending ? 'Processando...' : undefined}
                         >
                             {isPending
                                 ? 'Aguarde...'
@@ -423,6 +363,25 @@ export function ProductRowMobile({
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function Info({
+    label,
+    value,
+    title,
+}: {
+    label: string;
+    value: string;
+    title?: string;
+}) {
+    return (
+        <div className="space-y-1">
+            <p className="text-content-tertiary">{label}</p>
+            <p className="text-content-secondary truncate" title={title}>
+                {value}
+            </p>
         </div>
     );
 }

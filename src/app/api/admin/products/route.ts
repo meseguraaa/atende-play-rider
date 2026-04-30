@@ -6,25 +6,19 @@ import { requireAdminForModule } from '@/lib/admin-permissions';
 
 export const dynamic = 'force-dynamic';
 
-type CustomerLevel = 'BRONZE' | 'PRATA' | 'OURO' | 'DIAMANTE';
-
 type CategoryOption = {
     id: string;
     name: string;
     isActive: boolean;
-    showInServices: boolean;
     showInProducts: boolean;
 };
 
 type CreateProductPayload = {
-    unitId?: string | null;
-
     name?: string;
     imageUrl?: string;
     description?: string;
 
     price?: number | string;
-    barberPercentage?: number | string;
 
     // legado
     category?: string;
@@ -37,11 +31,6 @@ type CreateProductPayload = {
 
     isActive?: boolean;
     isFeatured?: boolean;
-
-    birthdayBenefitEnabled?: boolean;
-    birthdayPriceLevel?: CustomerLevel | null;
-
-    levelDiscounts?: Partial<Record<CustomerLevel, number | string>>;
 };
 
 function jsonOk<T>(data: T, init?: ResponseInit) {
@@ -65,10 +54,13 @@ function toInt(
                       .trim()
                       .replace(',', '.')
               );
+
     if (!Number.isFinite(n)) return fallback;
+
     const i = Math.floor(n);
     const min = opts?.min ?? -Infinity;
     const max = opts?.max ?? Infinity;
+
     return Math.max(min, Math.min(max, i));
 }
 
@@ -77,6 +69,7 @@ function toMoneyNumber(raw: unknown): number {
         .trim()
         .replace(/\s/g, '')
         .replace(',', '.');
+
     const n = Number(s);
     return Number.isFinite(n) ? n : NaN;
 }
@@ -93,6 +86,7 @@ function normalizeNullableString(raw: unknown): string | null {
 
 function uniqStrings(values: unknown): string[] {
     if (!Array.isArray(values)) return [];
+
     const out: string[] = [];
     const seen = new Set<string>();
 
@@ -100,6 +94,7 @@ function uniqStrings(values: unknown): string[] {
         const s = typeof v === 'string' ? v.trim() : '';
         if (!s) continue;
         if (seen.has(s)) continue;
+
         seen.add(s);
         out.push(s);
     }
@@ -112,53 +107,19 @@ function isValidImageUrl(imageUrl: string) {
     if (!s) return false;
 
     const lowered = s.toLowerCase();
+
     if (lowered.startsWith('javascript:')) return false;
     if (lowered.startsWith('data:')) return false;
     if (lowered.startsWith('blob:')) return false;
 
     if (s.startsWith('/uploads/')) return true;
     if (s.startsWith('/media/')) return true;
-    if (lowered.startsWith('http://') || lowered.startsWith('https://'))
+
+    if (lowered.startsWith('http://') || lowered.startsWith('https://')) {
         return true;
+    }
 
     return false;
-}
-
-async function sanitizeUnitScope(params: {
-    companyId: string;
-    activeUnitId: string | null;
-}) {
-    const { companyId, activeUnitId } = params;
-    if (!activeUnitId) return null;
-
-    const belongs = await prisma.unit.findFirst({
-        where: { id: activeUnitId, companyId },
-        select: { id: true },
-    });
-
-    return belongs ? activeUnitId : null;
-}
-
-function normalizeLevelDiscounts(
-    ld: unknown
-): Partial<Record<CustomerLevel, number>> {
-    if (!ld || typeof ld !== 'object') return {};
-
-    const out: Partial<Record<CustomerLevel, number>> = {};
-    const obj = ld as Record<string, unknown>;
-
-    (['BRONZE', 'PRATA', 'OURO', 'DIAMANTE'] as CustomerLevel[]).forEach(
-        (lvl) => {
-            const v = obj[lvl];
-            if (v === undefined || v === null || String(v).trim() === '')
-                return;
-
-            const n = toInt(v, 0, { min: 0, max: 100 });
-            if (Number.isFinite(n)) out[lvl] = n;
-        }
-    );
-
-    return out;
 }
 
 export async function GET(_request: Request) {
@@ -173,21 +134,7 @@ export async function GET(_request: Request) {
             );
         }
 
-        const rawActiveUnitId = String((session as any)?.unitId ?? '').trim();
-        const activeUnitId = await sanitizeUnitScope({
-            companyId,
-            activeUnitId: rawActiveUnitId || null,
-        });
-
-        const [units, categories, productsPrisma] = await Promise.all([
-            prisma.unit.findMany({
-                where: {
-                    companyId,
-                    ...(activeUnitId ? { id: activeUnitId } : {}),
-                },
-                orderBy: { name: 'asc' },
-                select: { id: true, name: true, isActive: true },
-            }),
+        const [categories, productsPrisma] = await Promise.all([
             prisma.category.findMany({
                 where: { companyId },
                 orderBy: { name: 'asc' },
@@ -195,14 +142,13 @@ export async function GET(_request: Request) {
                     id: true,
                     name: true,
                     isActive: true,
-                    showInServices: true,
                     showInProducts: true,
                 },
             }),
+
             prisma.product.findMany({
                 where: {
                     companyId,
-                    ...(activeUnitId ? { unitId: activeUnitId } : {}),
                 },
                 orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
                 select: {
@@ -211,17 +157,11 @@ export async function GET(_request: Request) {
                     imageUrl: true,
                     description: true,
                     price: true,
-                    professionalPercentage: true,
                     legacyCategory: true,
                     stockQuantity: true,
                     isActive: true,
                     pickupDeadlineDays: true,
-                    unitId: true,
                     isFeatured: true,
-                    birthdayBenefitEnabled: true,
-                    birthdayPriceLevel: true,
-                    unit: { select: { id: true, name: true } },
-                    discounts: { select: { level: true, discountPct: true } },
                     categories: {
                         select: {
                             category: {
@@ -240,18 +180,10 @@ export async function GET(_request: Request) {
             id: c.id,
             name: c.name,
             isActive: c.isActive,
-            showInServices: c.showInServices,
             showInProducts: c.showInProducts,
         }));
 
         const products = productsPrisma.map((p) => {
-            const levelDiscounts: Partial<Record<CustomerLevel, number>> = {};
-            for (const row of p.discounts ?? []) {
-                const pct = Number(row.discountPct);
-                if (Number.isFinite(pct))
-                    levelDiscounts[row.level as CustomerLevel] = pct;
-            }
-
             const pickupDeadlineDays =
                 typeof p.pickupDeadlineDays === 'number' &&
                 Number.isFinite(p.pickupDeadlineDays) &&
@@ -273,7 +205,6 @@ export async function GET(_request: Request) {
                 imageUrl: String(p.imageUrl ?? ''),
                 description: p.description,
                 price: Number(p.price),
-                barberPercentage: Number(p.professionalPercentage),
 
                 // legado
                 category: p.legacyCategory ?? '',
@@ -286,21 +217,22 @@ export async function GET(_request: Request) {
                 stockQuantity: p.stockQuantity,
                 isActive: p.isActive,
                 pickupDeadlineDays,
-                unitId: p.unit?.id ?? p.unitId,
-                unitName: p.unit?.name ?? '—',
-                birthdayBenefitEnabled: Boolean(p.birthdayBenefitEnabled),
-                birthdayPriceLevel: (p.birthdayPriceLevel ??
-                    null) as CustomerLevel | null,
                 isFeatured: Boolean(p.isFeatured),
-                hasLevelPrices: (p.discounts?.length ?? 0) > 0,
-                levelDiscounts,
+
+                // compat temporária com UI antiga
+                hasLevelPrices: false,
+                levelDiscounts: {},
+                birthdayBenefitEnabled: false,
+                birthdayPriceLevel: null,
+                unitId: null,
+                unitName: '—',
             };
         });
 
         return jsonOk({
             products,
-            units,
-            activeUnitId,
+            units: [],
+            activeUnitId: null,
             categories: categoriesUI,
         });
     } catch {
@@ -323,21 +255,8 @@ export async function POST(request: Request) {
         const body = (await request
             .json()
             .catch(() => null)) as CreateProductPayload | null;
+
         if (!body) return jsonErr('Body inválido.');
-
-        const requestedUnitId = normalizeString(body.unitId);
-        const lockedUnitId = (session as any)?.canSeeAllUnits
-            ? ''
-            : String((session as any)?.unitId ?? '').trim();
-        const unitId = lockedUnitId || requestedUnitId;
-
-        if (!unitId) return jsonErr('unitId é obrigatório.');
-
-        const unit = await prisma.unit.findFirst({
-            where: { id: unitId, companyId },
-            select: { id: true, name: true },
-        });
-        if (!unit) return jsonErr('Unidade inválida para esta empresa.', 400);
 
         const name = normalizeString(body.name);
         const imageUrl = normalizeNullableString(body.imageUrl);
@@ -369,18 +288,11 @@ export async function POST(request: Request) {
             return jsonErr('Preço inválido.');
         }
 
-        const professionalPercentage = toInt(body.barberPercentage, 0, {
-            min: 0,
-            max: 100,
-        });
-        if (!Number.isFinite(professionalPercentage)) {
-            return jsonErr('Porcentagem do profissional inválida.');
-        }
-
         const stockQuantity = toInt(body.stockQuantity, 0, {
             min: 0,
             max: 1_000_000,
         });
+
         const pickupDeadlineDays = toInt(body.pickupDeadlineDays, 2, {
             min: 1,
             max: 30,
@@ -388,14 +300,8 @@ export async function POST(request: Request) {
 
         const isActive =
             typeof body.isActive === 'boolean' ? body.isActive : true;
+
         const isFeatured = Boolean(body.isFeatured);
-
-        const birthdayBenefitEnabled = Boolean(body.birthdayBenefitEnabled);
-        const birthdayPriceLevel = birthdayBenefitEnabled
-            ? ((body.birthdayPriceLevel ?? null) as CustomerLevel | null)
-            : null;
-
-        const levelDiscounts = normalizeLevelDiscounts(body.levelDiscounts);
 
         const validCategories = await prisma.category.findMany({
             where: {
@@ -424,28 +330,16 @@ export async function POST(request: Request) {
             const product = await tx.product.create({
                 data: {
                     companyId,
-                    unitId,
                     name,
                     imageUrl: imageUrl ?? '',
                     description,
                     price,
-                    professionalPercentage,
+                    professionalPercentage: 0,
                     legacyCategory,
                     isActive,
                     isFeatured,
                     stockQuantity,
                     pickupDeadlineDays,
-                    birthdayBenefitEnabled,
-                    birthdayPriceLevel,
-                    discounts: {
-                        create: Object.entries(levelDiscounts).map(
-                            ([level, discountPct]) => ({
-                                companyId,
-                                level: level as CustomerLevel,
-                                discountPct: Number(discountPct) || 0,
-                            })
-                        ),
-                    },
                 },
                 select: { id: true },
             });

@@ -38,8 +38,6 @@ type RideImageFormItem = {
 
 type Props = {
     children?: React.ReactNode;
-    forcedUnitId?: string | null;
-    units?: UnitOption[];
 };
 
 type UploadResponse =
@@ -80,11 +78,7 @@ function getInitialEndsAt(startsAt: string) {
     return toDatetimeLocalValue(date);
 }
 
-export default function NewRideDialog({
-    children,
-    forcedUnitId = null,
-    units = [],
-}: Props) {
+export default function NewRideDialog({ children }: Props) {
     const router = useRouter();
     const initialStartsAt = React.useMemo(() => getInitialStartsAt(), []);
 
@@ -100,7 +94,6 @@ export default function NewRideDialog({
     );
     const [description, setDescription] = React.useState('');
     const [observation, setObservation] = React.useState('');
-    const [unitId, setUnitId] = React.useState(forcedUnitId ?? '');
     const [meetingPoints, setMeetingPoints] = React.useState<
         MeetingPointFormItem[]
     >([{ name: '', address: '' }]);
@@ -108,8 +101,7 @@ export default function NewRideDialog({
 
     React.useEffect(() => {
         if (!open) return;
-        if (forcedUnitId) setUnitId(forcedUnitId);
-    }, [open, forcedUnitId]);
+    }, [open]);
 
     function resetForm() {
         const nextStartsAt = getInitialStartsAt();
@@ -120,7 +112,6 @@ export default function NewRideDialog({
         setEndsAt(getInitialEndsAt(nextStartsAt));
         setDescription('');
         setObservation('');
-        setUnitId(forcedUnitId ?? '');
         setMeetingPoints([{ name: '', address: '' }]);
         setImages([]);
     }
@@ -253,7 +244,6 @@ export default function NewRideDialog({
                     endsAt: endsAtDate ? endsAtDate.toISOString() : null,
                     description: description.trim() || null,
                     observation: observation.trim() || null,
-                    unitId: unitId || null,
                     meetingPoints: cleanMeetingPoints,
                     images,
                 }),
@@ -320,29 +310,6 @@ export default function NewRideDialog({
                             placeholder="Ex: Serra Negra - SP"
                         />
                     </div>
-
-                    {units.length > 0 && !forcedUnitId ? (
-                        <div className="space-y-2">
-                            <p className="text-label-medium-size text-content-primary">
-                                Grupo / unidade
-                            </p>
-
-                            <select
-                                value={unitId}
-                                onChange={(event) =>
-                                    setUnitId(event.target.value)
-                                }
-                                className="flex h-12 w-full rounded-md border border-border-primary bg-background-tertiary px-3 py-2 text-sm text-content-primary focus:border-border-brand focus-visible:outline-none"
-                            >
-                                <option value="">Sem unidade específica</option>
-                                {units.map((unit) => (
-                                    <option key={unit.id} value={unit.id}>
-                                        {unit.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    ) : null}
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">

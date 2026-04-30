@@ -66,12 +66,10 @@ export default async function AdminCategoriesPage() {
             companyId: true,
             name: true,
             isActive: true,
-            showInServices: true,
             showInProducts: true,
             showInFaq: true,
             _count: {
                 select: {
-                    serviceLinks: true,
                     productLinks: true,
                     faqItems: true,
                 },
@@ -84,10 +82,8 @@ export default async function AdminCategoriesPage() {
         companyId: c.companyId,
         name: c.name,
         isActive: Boolean(c.isActive),
-        showInServices: Boolean(c.showInServices),
         showInProducts: Boolean(c.showInProducts),
         showInFaq: Boolean(c.showInFaq),
-        servicesCount: c._count.serviceLinks,
         productsCount: c._count.productLinks,
         faqCount: c._count.faqItems,
     }));

@@ -1,7 +1,6 @@
 // src/lib/admin-permissions.ts
 import { redirect } from 'next/navigation';
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 import { prisma } from '@/lib/prisma';
 import { getCurrentPainelUser } from '@/lib/painel-session';
@@ -13,13 +12,12 @@ import { getCurrentPainelUser } from '@/lib/painel-session';
 export type AdminModule =
     | 'DASHBOARD'
     | 'REPORTS'
-    | 'APPOINTMENTS'
+    | 'RIDES'
     | 'CATEGORIES'
     | 'REVIEWS'
     | 'PRODUCTS'
     | 'PARTNERS'
-    | 'CLIENTS'
-    | 'CLIENT_LEVELS'
+    | 'MEMBERS'
     | 'FINANCE'
     | 'SETTINGS'
     | 'COMMUNICATION'
@@ -33,20 +31,17 @@ export type AdminSession = {
     role: 'ADMIN';
     isOwner: boolean;
     companyId: string;
-    unitId: string | null;
-    canSeeAllUnits: boolean;
 };
 
 type AdminAccessFlag =
     | 'canAccessDashboard'
     | 'canAccessReports'
-    | 'canAccessAppointments'
+    | 'canAccessRides'
     | 'canAccessCategories'
     | 'canAccessReviews'
     | 'canAccessProducts'
     | 'canAccessPartners'
-    | 'canAccessClients'
-    | 'canAccessClientLevels'
+    | 'canAccessMembers'
     | 'canAccessFinance'
     | 'canAccessSettings'
     | 'canAccessCommunication'
@@ -54,16 +49,16 @@ type AdminAccessFlag =
     | 'canAccessFaqReports';
 
 type AdminAccessSelect = Record<AdminAccessFlag, true>;
+
 const ADMIN_ACCESS_SELECT: AdminAccessSelect = {
     canAccessDashboard: true,
     canAccessReports: true,
-    canAccessAppointments: true,
+    canAccessRides: true,
     canAccessCategories: true,
     canAccessReviews: true,
     canAccessProducts: true,
     canAccessPartners: true,
-    canAccessClients: true,
-    canAccessClientLevels: true,
+    canAccessMembers: true,
     canAccessFinance: true,
     canAccessSettings: true,
     canAccessCommunication: true,
@@ -77,25 +72,18 @@ function moduleToAccessField(module: AdminModule): AdminAccessFlag | null {
             return 'canAccessDashboard';
         case 'REPORTS':
             return 'canAccessReports';
-        case 'APPOINTMENTS':
-            return 'canAccessAppointments';
+        case 'RIDES':
+            return 'canAccessRides';
         case 'CATEGORIES':
             return 'canAccessCategories';
         case 'REVIEWS':
             return 'canAccessReviews';
         case 'PRODUCTS':
             return 'canAccessProducts';
-
-        // ✅ IMPORTANTE:
-        // Parceiros saiu do ADMIN (tenant) e agora pertence somente à PLATAFORMA.
-        // Ao retornar null, o guard força redirect para o primeiro módulo permitido.
         case 'PARTNERS':
             return null;
-
-        case 'CLIENTS':
-            return 'canAccessClients';
-        case 'CLIENT_LEVELS':
-            return 'canAccessClientLevels';
+        case 'MEMBERS':
+            return 'canAccessMembers';
         case 'FINANCE':
             return 'canAccessFinance';
         case 'SETTINGS':
@@ -142,7 +130,6 @@ async function getAdminContext(): Promise<AdminContextResult> {
 
     if (!session) return { ok: false, reason: 'no_session' };
 
-    // ✅ IMPORTANTE: aqui é TENANT ADMIN apenas
     if (session.role !== 'ADMIN') return { ok: false, reason: 'not_admin' };
 
     const userId = String((session as any).sub || '').trim();
@@ -173,7 +160,6 @@ async function getAdminContext(): Promise<AdminContextResult> {
 
     const isOwner = membership.role === 'OWNER';
 
-    // ✅ Sub-admin precisa existir em AdminAccess (OWNER não precisa)
     if (!isOwner) {
         const accessExists = await prisma.adminAccess.findFirst({
             where: { userId, companyId },
@@ -212,27 +198,16 @@ function redirectToLoginByReason(reason: AdminContextFailureReason): never {
 
 type ModuleRoute = { module: AdminModule; href: string };
 
-/**
- * ✅ Ordem de “melhor destino” quando falta permissão.
- *
- * Mantemos DASHBOARD por último (se for o único liberado, vira fallback final).
- * O restante segue a ordem do menu que você pediu.
- */
 const FALLBACK_ROUTES: ModuleRoute[] = [
-    { module: 'APPOINTMENTS', href: '/admin/appointments' },
+    { module: 'RIDES', href: '/admin/rides' },
     { module: 'CATEGORIES', href: '/admin/categories' },
     { module: 'PRODUCTS', href: '/admin/products' },
-
-    // ✅ PARTNERS REMOVIDO do fallback (agora é somente da PLATAFORMA)
-
-    { module: 'CLIENTS', href: '/admin/clients' },
+    { module: 'MEMBERS', href: '/admin/members' },
     { module: 'COMMUNICATION', href: '/admin/communication' },
-    { module: 'CLIENT_LEVELS', href: '/admin/client-levels' },
     { module: 'REVIEWS', href: '/admin/review-tags' },
     { module: 'REPORTS', href: '/admin/reports' },
     { module: 'FINANCE', href: '/admin/finance' },
     { module: 'SETTINGS', href: '/admin/setting' },
-    // deixa dashboard por último
     { module: 'DASHBOARD', href: '/admin/dashboard' },
 ];
 
@@ -269,70 +244,8 @@ async function redirectToFirstAllowedOrLogin(params: {
     throw new Error('unreachable');
 }
 
-async function resolveSelectedUnitForAdmin(params: {
-    companyId: string;
-    userId: string;
-    isOwner: boolean;
-}): Promise<{ unitId: string | null; canSeeAllUnits: boolean }> {
-    const cookieStore = await cookies();
-    const rawUnitId = String(
-        cookieStore.get('admin_unit_context')?.value || ''
-    ).trim();
-
-    if (!rawUnitId || rawUnitId === 'all') {
-        return {
-            unitId: null,
-            canSeeAllUnits: params.isOwner,
-        };
-    }
-
-    const unit = await prisma.unit.findFirst({
-        where: {
-            id: rawUnitId,
-            companyId: params.companyId,
-            isActive: true,
-        },
-        select: { id: true },
-    });
-
-    if (!unit?.id) {
-        return {
-            unitId: null,
-            canSeeAllUnits: params.isOwner,
-        };
-    }
-
-    if (params.isOwner) {
-        return {
-            unitId: unit.id,
-            canSeeAllUnits: true,
-        };
-    }
-
-    const hasUnitAccess = await prisma.adminUnitAccess.findFirst({
-        where: {
-            companyId: params.companyId,
-            userId: params.userId,
-            unitId: unit.id,
-        },
-        select: { id: true },
-    });
-
-    if (!hasUnitAccess?.id) {
-        return {
-            unitId: null,
-            canSeeAllUnits: false,
-        };
-    }
-
-    return {
-        unitId: unit.id,
-        canSeeAllUnits: false,
-    };
-}
-
 /**
- * ✅ Server Components / Layouts / Pages (bloqueia com redirect)
+ * Server Components / Layouts / Pages
  */
 export async function requireAdminForModule(
     module: AdminModule
@@ -344,15 +257,8 @@ export async function requireAdminForModule(
     }
 
     const ctx = res.ctx;
-    const unitContext = await resolveSelectedUnitForAdmin({
-        companyId: ctx.companyId,
-        userId: ctx.id,
-        isOwner: ctx.isOwner,
-    });
 
-    // OWNER: tudo liberado (mas mesmo assim, PARTNERS não existe mais no Admin)
     if (ctx.isOwner) {
-        // ✅ Se tentarem acessar PARTNERS como admin-owner tenant, cai no redirect padrão
         if (module === 'PARTNERS') {
             await redirectToFirstAllowedOrLogin({
                 companyId: ctx.companyId,
@@ -368,8 +274,6 @@ export async function requireAdminForModule(
             role: 'ADMIN',
             isOwner: true,
             companyId: ctx.companyId,
-            unitId: unitContext.unitId,
-            canSeeAllUnits: unitContext.canSeeAllUnits,
         };
     }
 
@@ -411,18 +315,11 @@ export async function requireAdminForModule(
         role: 'ADMIN',
         isOwner: false,
         companyId: ctx.companyId,
-        unitId: unitContext.unitId,
-        canSeeAllUnits: unitContext.canSeeAllUnits,
     };
 }
 
 /**
- * ✅ Route Handlers /api (bloqueia com 403 JSON)
- *
- * Uso:
- * const res = await requireAdminForModuleApi('DASHBOARD');
- * if (res instanceof NextResponse) return res;
- * const session = res;
+ * Route Handlers /api
  */
 export async function requireAdminForModuleApi(
     module: AdminModule
@@ -437,14 +334,8 @@ export async function requireAdminForModuleApi(
     }
 
     const ctx = res.ctx;
-    const unitContext = await resolveSelectedUnitForAdmin({
-        companyId: ctx.companyId,
-        userId: ctx.id,
-        isOwner: ctx.isOwner,
-    });
 
     if (ctx.isOwner) {
-        // ✅ trava PARTNERS também na API do Admin
         if (module === 'PARTNERS') {
             return NextResponse.json(
                 { ok: false, error: 'forbidden' },
@@ -459,8 +350,6 @@ export async function requireAdminForModuleApi(
             role: 'ADMIN',
             isOwner: true,
             companyId: ctx.companyId,
-            unitId: unitContext.unitId,
-            canSeeAllUnits: unitContext.canSeeAllUnits,
         };
     }
 
@@ -492,32 +381,23 @@ export async function requireAdminForModuleApi(
         role: 'ADMIN',
         isOwner: false,
         companyId: ctx.companyId,
-        unitId: unitContext.unitId,
-        canSeeAllUnits: unitContext.canSeeAllUnits,
     };
 }
 
 /* =========================================================
  * Platform (AtendePlay)
- * ========================================================= *
- * ✅ MOVED OUT:
- * A plataforma agora vive em src/lib/platform-permissions.ts
- * Mantemos re-export aqui por compat (caso algum import antigo exista).
- */
+ * ========================================================= */
 
 export type {
     PlatformModule,
     PlatformSession,
 } from '@/lib/plataform-permissions';
+
 export {
     requirePlatformForModule,
     requirePlatformForModuleApi,
 } from '@/lib/plataform-permissions';
 
-/**
- * Mantive esse export porque você já usou em outros pontos.
- * Implementamos de verdade quando chegar no painel do profissional.
- */
 export async function requireProfessionalSession(): Promise<never> {
     throw new Error(
         'requireProfessionalSession ainda não foi implementado (não é necessário neste passo).'

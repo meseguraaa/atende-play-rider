@@ -9,16 +9,24 @@ datasource db {
 }
 
 model Company {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String?
-  segment   String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String
+  slug         String?
+  segment      String
+  phone        String?
+  cep          String?
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+  address      String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   adminAccesses     AdminAccess[]
-  adminUnitAccesses AdminUnitAccess[]
   analyticsEvents   AnalyticsEvent[]
   members           CompanyMember[]
   categories        Category[]
@@ -31,11 +39,8 @@ model Company {
   reviewTags        ReviewTag[]
   rideReviews       RideReview[]
   rides             Ride[]
-  units             Unit[]
   faqItems          FaqItem[]
   faqEvents         FaqEvent[]
-
-  clientAddresses ClientAddress[]
 
   partnerVisibilities PartnerVisibility[]
 
@@ -57,19 +62,17 @@ model Company {
 }
 
 model CompanyMember {
-  id         String            @id @default(cuid())
-  companyId  String
-  userId     String
-  role       CompanyMemberRole @default(CLIENT)
-  isActive   Boolean           @default(true)
-  lastUnitId String?
-  joinedAt   DateTime          @default(now())
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id        String            @id @default(cuid())
+  companyId String
+  userId    String
+  role      CompanyMemberRole @default(CLIENT)
+  isActive  Boolean           @default(true)
+  joinedAt  DateTime          @default(now())
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 
-  company  Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  lastUnit Unit?   @relation(fields: [lastUnitId], references: [id])
-  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, userId])
   @@index([userId])
@@ -95,12 +98,10 @@ model User {
   accounts            Account[]
   sessions            Session[]
   adminAccesses       AdminAccess[]
-  adminUnitAccesses   AdminUnitAccess[]
   analyticsEvents     AnalyticsEvent[]
   rideReviews         RideReview[]
   companyMemberships  CompanyMember[]
   passwordResetTokens PasswordResetToken[]
-  clientAddresses     ClientAddress[]
   pushDevices         PushDevice[]
   appNotifications    AppNotification[]
   memberVehicles      MemberVehicle[]
@@ -152,35 +153,6 @@ model PushDevice {
   @@map("push_devices")
 }
 
-model ClientAddress {
-  id           String   @id @default(cuid())
-  companyId    String
-  clientId     String
-  label        String
-  cep          String?
-  street       String?
-  number       String?
-  complement   String?
-  neighborhood String?
-  city         String?
-  state        String?
-  reference    String?
-  isDefault    Boolean  @default(false)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  client  User    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@unique([companyId, clientId, label])
-  @@index([companyId])
-  @@index([clientId])
-  @@index([companyId, clientId, isActive])
-  @@index([clientId, isDefault])
-  @@map("client_addresses")
-}
-
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -220,49 +192,9 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-model Unit {
-  id        String @id @default(cuid())
-  companyId String
-
-  name  String
-  phone String?
-
-  cep          String?
-  street       String?
-  number       String?
-  complement   String?
-  neighborhood String?
-  city         String?
-  state        String?
-  address      String?
-
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  adminAccesses         AdminAccess[]
-  adminUnitAccesses     AdminUnitAccess[]
-  analyticsEvents       AnalyticsEvent[]
-  lastUsedByMembers     CompanyMember[]
-  expenses              Expense[]
-  orders                Order[]
-  productSales          ProductSale[]
-  products              Product[]
-  company               Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  rides                 Ride[]
-  whatsappChannels      WhatsappChannel[]
-  whatsappSessions      WhatsappSession[]
-  cardMachines          CardMachine[]
-  cardMachineCreditFees CardMachineCreditFee[]
-
-  @@index([companyId])
-  @@map("units")
-}
-
 model CardMachine {
   id              String   @id @default(cuid())
   companyId       String
-  unitId          String
   name            String
   debitFeePercent Decimal  @default(0) @db.Decimal(5, 2)
   isActive        Boolean  @default(true)
@@ -270,19 +202,17 @@ model CardMachine {
   updatedAt       DateTime @updatedAt
 
   company    Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  unit       Unit                   @relation(fields: [unitId], references: [id], onDelete: Cascade)
   creditFees CardMachineCreditFee[]
 
-  @@unique([unitId, name])
+  @@unique([companyId, name])
   @@index([companyId])
-  @@index([unitId, isActive])
+  @@index([companyId, isActive])
   @@map("card_machines")
 }
 
 model CardMachineCreditFee {
   id            String   @id @default(cuid())
   companyId     String
-  unitId        String
   cardMachineId String
   installments  Int
   feePercent    Decimal  @default(0) @db.Decimal(5, 2)
@@ -291,12 +221,10 @@ model CardMachineCreditFee {
   updatedAt     DateTime @updatedAt
 
   company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  unit        Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
   cardMachine CardMachine @relation(fields: [cardMachineId], references: [id], onDelete: Cascade)
 
   @@unique([cardMachineId, installments])
   @@index([companyId])
-  @@index([unitId])
   @@index([cardMachineId, isActive])
   @@index([installments])
   @@map("card_machine_credit_fees")
@@ -310,7 +238,6 @@ enum WhatsappSessionStage {
   REGISTER_NAME
   CONFIRM_PHONE
   REGISTER_BIRTHDATE
-  ASK_UNIT
   FAQ_CATEGORY
   FAQ_QUESTION
   FAQ_ANSWER
@@ -330,18 +257,15 @@ model WhatsappChannel {
   phoneNumberId String   @unique
   displayPhone  String?
   companyId     String
-  defaultUnitId String?
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  defaultUnit Unit?             @relation(fields: [defaultUnitId], references: [id], onDelete: SetNull)
-  sessions    WhatsappSession[]
-  faqEvents   FaqEvent[]
+  company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sessions  WhatsappSession[]
+  faqEvents FaqEvent[]
 
   @@index([companyId, isActive])
-  @@index([defaultUnitId])
   @@map("whatsapp_channels")
 }
 
@@ -355,17 +279,14 @@ model WhatsappSession {
   expiresAt DateTime
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
-  unitId    String?
 
   channel   WhatsappChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   company   Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  unit      Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
   faqEvents FaqEvent[]
 
   @@unique([channelId, fromPhone])
   @@index([companyId, fromPhone])
   @@index([expiresAt])
-  @@index([unitId])
   @@map("whatsapp_sessions")
 }
 
@@ -392,9 +313,8 @@ model Category {
 }
 
 model Ride {
-  id        String  @id @default(cuid())
+  id        String @id @default(cuid())
   companyId String
-  unitId    String?
 
   title       String
   destination String
@@ -416,7 +336,6 @@ model Ride {
   updatedAt DateTime @updatedAt
 
   company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  unit      Unit?   @relation(fields: [unitId], references: [id], onDelete: SetNull)
   createdBy User?   @relation("RidesCreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   meetingPoints RideMeetingPoint[]
@@ -425,7 +344,6 @@ model Ride {
   reviews       RideReview[]
 
   @@index([companyId])
-  @@index([unitId])
   @@index([startsAt])
   @@index([status])
   @@index([companyId, status])
@@ -493,33 +411,29 @@ model RideParticipant {
 }
 
 model Product {
-  id                     String   @id @default(cuid())
-  companyId              String
-  unitId                 String
-  name                   String
-  imageUrl               String
-  imageKey               String?
-  imageMime              String?
-  imageSize              Int?
-  description            String
-  price                  Decimal  @db.Decimal(10, 2)
-  professionalPercentage Int      @default(0)
-  legacyCategory         String?  @map("category")
-  isActive               Boolean  @default(true)
-  isFeatured             Boolean  @default(false)
-  stockQuantity          Int      @default(0)
-  pickupDeadlineDays     Int      @default(2)
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @default(now())
+  id                 String   @id @default(cuid())
+  companyId          String
+  name               String
+  imageUrl           String
+  imageKey           String?
+  imageMime          String?
+  imageSize          Int?
+  description        String
+  price              Decimal  @db.Decimal(10, 2)
+  legacyCategory     String?  @map("category")
+  isActive           Boolean  @default(true)
+  isFeatured         Boolean  @default(false)
+  stockQuantity      Int      @default(0)
+  pickupDeadlineDays Int      @default(2)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @default(now())
 
   categories ProductCategory[]
   orderItems OrderItem[]
   sales      ProductSale[]
   company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  unit       Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
-  @@index([unitId])
   @@index([isFeatured])
   @@map("products")
 }
@@ -546,7 +460,6 @@ model ProductCategory {
 model ProductSale {
   id         String   @id @default(cuid())
   companyId  String
-  unitId     String
   productId  String
   quantity   Int
   unitPrice  Decimal  @db.Decimal(10, 2)
@@ -557,10 +470,8 @@ model ProductSale {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
-  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
-  @@index([unitId])
   @@index([productId])
   @@index([soldAt])
   @@map("product_sales")
@@ -569,8 +480,7 @@ model ProductSale {
 model Order {
   id                  String      @id @default(cuid())
   companyId           String
-  unitId              String
-  clientId            String?
+  memberId            String?     @map("clientId")
   status              OrderStatus @default(PENDING)
   reservedUntil       DateTime?
   expiredAt           DateTime?
@@ -580,13 +490,11 @@ model Order {
   updatedAt           DateTime    @updatedAt
 
   items   OrderItem[]
-  client  User?       @relation(fields: [clientId], references: [id])
+  member  User?       @relation(fields: [memberId], references: [id])
   company Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  unit    Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
-  @@index([unitId])
-  @@index([clientId])
+  @@index([memberId])
   @@map("orders")
 }
 
@@ -626,7 +534,6 @@ model OrderItem {
 model Expense {
   id          String          @id @default(cuid())
   companyId   String
-  unitId      String
   description String
   category    ExpenseCategory
   amount      Decimal         @db.Decimal(10, 2)
@@ -637,10 +544,8 @@ model Expense {
   updatedAt   DateTime        @default(now())
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
-  @@index([unitId])
   @@index([dueDate])
   @@map("expenses")
 }
@@ -649,7 +554,7 @@ model RideReview {
   id          String   @id @default(cuid())
   companyId   String
   rideId      String
-  clientId    String
+  memberId    String   @map("clientId")
   rating      Int
   comment     String?
   isAnonymous Boolean  @default(false)
@@ -658,12 +563,12 @@ model RideReview {
 
   tags    RideReviewTag[]
   ride    Ride            @relation(fields: [rideId], references: [id], onDelete: Cascade)
-  client  User            @relation(fields: [clientId], references: [id])
+  member  User            @relation(fields: [memberId], references: [id])
   company Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
-  @@unique([rideId, clientId])
+  @@unique([rideId, memberId])
   @@index([companyId])
-  @@index([clientId])
+  @@index([memberId])
   @@index([rideId])
   @@map("ride_reviews")
 }
@@ -704,7 +609,6 @@ model AdminAccess {
   id                     String   @id @default(cuid())
   companyId              String
   userId                 String
-  unitId                 String?
   canAccessDashboard     Boolean  @default(false)
   canAccessReports       Boolean  @default(false)
   canAccessRides         Boolean  @default(false)
@@ -722,40 +626,18 @@ model AdminAccess {
   updatedAt              DateTime @updatedAt
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  unit    Unit?   @relation(fields: [unitId], references: [id])
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, userId])
   @@index([companyId])
-  @@index([unitId])
   @@index([userId])
   @@map("admin_access")
-}
-
-model AdminUnitAccess {
-  id        String   @id @default(cuid())
-  companyId String
-  userId    String
-  unitId    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  unit    Unit    @relation(fields: [unitId], references: [id], onDelete: Cascade)
-
-  @@unique([companyId, userId, unitId])
-  @@index([companyId])
-  @@index([userId])
-  @@index([unitId])
-  @@map("admin_unit_access")
 }
 
 model AnalyticsEvent {
   id               String   @id @default(cuid())
   companyId        String?
   userId           String?
-  unitId           String?
   name             String
   ts               DateTime @default(now())
   source           String?
@@ -769,11 +651,9 @@ model AnalyticsEvent {
   createdAt        DateTime @default(now())
 
   company Company? @relation(fields: [companyId], references: [id])
-  unit    Unit?    @relation(fields: [unitId], references: [id])
   user    User?    @relation(fields: [userId], references: [id])
 
   @@index([companyId, createdAt])
-  @@index([unitId, createdAt])
   @@index([userId, createdAt])
   @@index([name, createdAt])
   @@map("analytics_events")
@@ -881,7 +761,7 @@ model FaqEvent {
   @@index([channelId, createdAt])
   @@index([categoryId, createdAt])
   @@index([faqItemId, createdAt])
-  @@index([whatsappSessionId, createdAt])
+  @@index([whatsappSessionId])
   @@index([eventType, createdAt])
   @@map("faq_events")
 }

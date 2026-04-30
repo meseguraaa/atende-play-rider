@@ -59,15 +59,14 @@ export async function GET(
             companyId: true,
             name: true,
             isActive: true,
-            showInServices: true,
             showInProducts: true,
             showInFaq: true,
             createdAt: true,
             updatedAt: true,
             _count: {
                 select: {
-                    serviceLinks: true,
                     productLinks: true,
+                    faqItems: true,
                 },
             },
         },
@@ -116,13 +115,12 @@ export async function PATCH(
             companyId: true,
             name: true,
             isActive: true,
-            showInServices: true,
             showInProducts: true,
             showInFaq: true,
             _count: {
                 select: {
-                    serviceLinks: true,
                     productLinks: true,
+                    faqItems: true,
                 },
             },
         },
@@ -135,9 +133,6 @@ export async function PATCH(
     const nextName = hasOwn(payload, 'name')
         ? asTrimmedString(payload.name)
         : current.name;
-
-    const nextShowInServices =
-        asOptionalBoolean(payload, 'showInServices') ?? current.showInServices;
 
     const nextShowInProducts =
         asOptionalBoolean(payload, 'showInProducts') ?? current.showInProducts;
@@ -152,9 +147,9 @@ export async function PATCH(
         return jsonErr('Nome da categoria é obrigatório.', 400);
     }
 
-    if (!nextShowInServices && !nextShowInProducts && !nextShowInFaq) {
+    if (!nextShowInProducts && !nextShowInFaq) {
         return jsonErr(
-            'Marque pelo menos uma opção: Serviços, Produtos e/ou Tirar dúvidas.',
+            'Marque pelo menos uma opção: Produtos e/ou Tirar dúvidas.',
             400
         );
     }
@@ -176,11 +171,11 @@ export async function PATCH(
     }
 
     const hasLinks =
-        current._count.serviceLinks > 0 || current._count.productLinks > 0;
+        current._count.productLinks > 0 || current._count.faqItems > 0;
 
     if (current.isActive && !nextIsActive && hasLinks) {
         return jsonErr(
-            'Esta categoria não pode ser inativada porque possui serviços ou produtos vinculados. Edite os itens relacionados e associe-os a categorias ativas antes de inativá-la.',
+            'Esta categoria não pode ser inativada porque possui produtos ou dúvidas vinculados. Edite os itens relacionados e associe-os a categorias ativas antes de inativá-la.',
             409
         );
     }
@@ -189,7 +184,6 @@ export async function PATCH(
         where: { id: current.id },
         data: {
             name: nextName,
-            showInServices: nextShowInServices,
             showInProducts: nextShowInProducts,
             showInFaq: nextShowInFaq,
             isActive: nextIsActive,
@@ -199,7 +193,6 @@ export async function PATCH(
             companyId: true,
             name: true,
             isActive: true,
-            showInServices: true,
             showInProducts: true,
             showInFaq: true,
             updatedAt: true,

@@ -11,12 +11,11 @@ export const dynamic = 'force-dynamic';
 type AdminAccessLike = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
-    canAccessAppointments: boolean;
+    canAccessRides: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
     canAccessProducts: boolean;
-    canAccessClients: boolean;
-    canAccessClientLevels: boolean;
+    canAccessMembers: boolean;
     canAccessFinance: boolean;
     canAccessSettings: boolean;
 };
@@ -89,12 +88,11 @@ export default async function AdminIndexPage() {
         select: {
             canAccessDashboard: true,
             canAccessReports: true,
-            canAccessAppointments: true,
+            canAccessRides: true,
             canAccessCategories: true,
             canAccessReviews: true,
             canAccessProducts: true,
-            canAccessClients: true,
-            canAccessClientLevels: true,
+            canAccessMembers: true,
             canAccessFinance: true,
             canAccessSettings: true,
         },

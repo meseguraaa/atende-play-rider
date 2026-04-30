@@ -16,11 +16,10 @@ function redirectWithError(code: string): never {
 type AdminAccessRow = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
-    canAccessAppointments: boolean;
+    canAccessRides: boolean;
     canAccessReviews: boolean;
     canAccessProducts: boolean;
-    canAccessClients: boolean;
-    canAccessClientLevels: boolean;
+    canAccessMembers: boolean;
     canAccessFinance: boolean;
     canAccessSettings: boolean;
 };
@@ -171,11 +170,10 @@ export async function loginPainel(formData: FormData) {
                 select: {
                     canAccessDashboard: true,
                     canAccessReports: true,
-                    canAccessAppointments: true,
+                    canAccessRides: true,
                     canAccessReviews: true,
                     canAccessProducts: true,
-                    canAccessClients: true,
-                    canAccessClientLevels: true,
+                    canAccessMembers: true,
                     canAccessFinance: true,
                     canAccessSettings: true,
                 },

@@ -38,15 +38,14 @@ export async function GET() {
             id: true,
             name: true,
             isActive: true,
-            showInServices: true,
             showInProducts: true,
             showInFaq: true,
             createdAt: true,
             updatedAt: true,
             _count: {
                 select: {
-                    serviceLinks: true,
                     productLinks: true,
+                    faqItems: true,
                 },
             },
         },
@@ -70,9 +69,6 @@ export async function POST(req: Request) {
     }
 
     const name = asTrimmedString((body as Record<string, unknown>).name);
-    const showInServices = asBoolean(
-        (body as Record<string, unknown>).showInServices
-    );
     const showInProducts = asBoolean(
         (body as Record<string, unknown>).showInProducts
     );
@@ -82,9 +78,9 @@ export async function POST(req: Request) {
         return jsonErr('Nome da categoria é obrigatório.', 400);
     }
 
-    if (!showInServices && !showInProducts && !showInFaq) {
+    if (!showInProducts && !showInFaq) {
         return jsonErr(
-            'Marque pelo menos uma opção: Serviços, Produtos e/ou Tirar dúvidas.',
+            'Marque pelo menos uma opção: Produtos e/ou Tirar dúvidas.',
             400
         );
     }
@@ -109,7 +105,6 @@ export async function POST(req: Request) {
             companyId,
             name,
             isActive: true,
-            showInServices,
             showInProducts,
             showInFaq,
         },

@@ -1,42 +1,44 @@
 // src/app/api/mobile/orders/product-sale/route.ts
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+
 import { prisma } from '@/lib/prisma';
 import { verifyAppJwt } from '@/lib/app-jwt';
-import { z } from 'zod';
 
 type Role = 'CLIENT' | 'BARBER' | 'ADMIN';
 
 type MobileTokenPayload = {
     sub: string;
     role: Role;
-    companyId: string; // ✅ multi-tenant obrigatório
+    companyId: string;
 };
 
 function corsHeaders() {
     return {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST,OPTIONS',
-        // ✅ inclui x-company-id (preflight / web safe)
         'Access-Control-Allow-Headers':
             'Content-Type, Authorization, x-company-id',
     };
 }
 
-// ✅ header case-insensitive
 function getHeaderCI(req: Request, key: string): string | null {
     const target = key.toLowerCase();
+
     for (const [k, v] of req.headers.entries()) {
         if (k.toLowerCase() === target) {
             const s = String(v ?? '').trim();
             return s.length ? s : null;
         }
     }
+
     return null;
 }
 
 async function requireMobileAuth(req: Request): Promise<MobileTokenPayload> {
     const auth = req.headers.get('authorization') || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : '';
+
     if (!token) throw new Error('missing_token');
 
     const payload = await verifyAppJwt(token);
@@ -48,13 +50,11 @@ async function requireMobileAuth(req: Request): Promise<MobileTokenPayload> {
 
     if (!sub) throw new Error('invalid_token');
 
-    // 1) companyId do JWT
     let companyId =
         typeof (payload as any)?.companyId === 'string'
             ? String((payload as any).companyId).trim()
             : '';
 
-    // 2) fallback: x-company-id
     if (!companyId) {
         const h = getHeaderCI(req, 'x-company-id');
         if (h) companyId = h;
@@ -62,7 +62,6 @@ async function requireMobileAuth(req: Request): Promise<MobileTokenPayload> {
 
     if (!companyId) throw new Error('missing_company_id');
 
-    // ✅ valida membership (anti-spoof)
     const membership = await prisma.companyMember.findFirst({
         where: { userId: sub, companyId, isActive: true },
         select: { id: true },
@@ -77,7 +76,6 @@ export async function OPTIONS() {
     return new NextResponse(null, { status: 204, headers: corsHeaders() });
 }
 
-// ✅ Compat helper: OrderItem pode ou não ter companyId no schema
 async function createOrderItemCompat(
     tx: any,
     data: Record<string, any>,
@@ -96,7 +94,6 @@ async function createOrderItemCompat(
 
 const bodySchema = z.object({
     productId: z.string().min(1, 'productId obrigatório'),
-    // ✅ aceita number ou "1"
     quantity: z.coerce.number().int().min(1, 'quantity deve ser >= 1'),
 });
 
@@ -108,7 +105,7 @@ const bodySchema = z.object({
  * - valida produto ativo e estoque suficiente
  * - NÃO baixa estoque
  * - cria Order PENDING_CHECKIN com reservedUntil (pickupDeadlineDays)
- * - ✅ multi-tenant: scopa tudo por companyId
+ * - multi-tenant: tudo por companyId
  */
 export async function POST(req: Request) {
     const headers = corsHeaders();
@@ -125,6 +122,7 @@ export async function POST(req: Request) {
         }
 
         let json: unknown = null;
+
         try {
             json = await req.json();
         } catch {
@@ -135,6 +133,7 @@ export async function POST(req: Request) {
         }
 
         const parsed = bodySchema.safeParse(json);
+
         if (!parsed.success) {
             return NextResponse.json(
                 { error: parsed.error.issues[0]?.message ?? 'invalid_body' },
@@ -143,17 +142,16 @@ export async function POST(req: Request) {
         }
 
         const { productId, quantity } = parsed.data;
-        const clientId = auth.sub;
+        const memberId = auth.sub;
 
         const result = await prisma.$transaction(async (tx) => {
             const product = await tx.product.findFirst({
-                where: { id: productId, companyId, isActive: true }, // ✅ tenant scope
+                where: { id: productId, companyId, isActive: true },
                 select: {
                     id: true,
                     stockQuantity: true,
-                    price: true, // Decimal
+                    price: true,
                     pickupDeadlineDays: true,
-                    unitId: true,
                 },
             });
 
@@ -162,28 +160,6 @@ export async function POST(req: Request) {
                     ok: false as const,
                     status: 404,
                     error: 'product_not_found',
-                };
-            }
-
-            if (!product.unitId) {
-                return {
-                    ok: false as const,
-                    status: 400,
-                    error: 'product_missing_unit',
-                };
-            }
-
-            // ✅ defesa extra: unidade tem que ser do tenant
-            const unitOk = await tx.unit.findFirst({
-                where: { id: product.unitId, companyId }, // ✅ tenant scope
-                select: { id: true },
-            });
-
-            if (!unitOk) {
-                return {
-                    ok: false as const,
-                    status: 400,
-                    error: 'invalid_unit',
                 };
             }
 
@@ -205,25 +181,20 @@ export async function POST(req: Request) {
             const reservedUntil = new Date();
             reservedUntil.setDate(reservedUntil.getDate() + deadlineDays);
 
-            const unitPrice = product.price; // Decimal
-            const totalPrice = unitPrice.mul(quantity); // Decimal
+            const unitPrice = product.price;
+            const totalPrice = unitPrice.mul(quantity);
 
-            // ✅ cria order primeiro
             const order = await tx.order.create({
                 data: {
-                    companyId, // ✅ tenant scope
-                    clientId,
-                    appointmentId: null,
-                    // ✅ barberId removido: não existe mais no schema
+                    companyId,
+                    memberId,
                     status: 'PENDING_CHECKIN',
                     reservedUntil,
                     totalAmount: totalPrice,
-                    unitId: product.unitId,
                 },
                 select: { id: true, reservedUntil: true },
             });
 
-            // ✅ cria item com compat (tenta com companyId e faz fallback sem)
             await createOrderItemCompat(
                 tx,
                 {
@@ -296,6 +267,7 @@ export async function POST(req: Request) {
         }
 
         console.error('[mobile product-sale] error:', e);
+
         return NextResponse.json(
             { error: 'server_error' },
             { status: 500, headers }

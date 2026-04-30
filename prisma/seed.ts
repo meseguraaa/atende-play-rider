@@ -7,7 +7,6 @@ const prisma = new PrismaClient();
 async function main() {
     const COMPANY_SLUG = 'atendeplayrider';
     const COMPANY_NAME = 'AtendePlay Rider';
-    const UNIT_NAME = 'Grupo AtendePlay Rider';
 
     const ADMIN_EMAIL = 'admin@atendeplay.com.br';
     const PLATFORM_EMAIL = 'plataform@atendeplay.com.br';
@@ -26,23 +25,6 @@ async function main() {
                 name: COMPANY_NAME,
                 slug: COMPANY_SLUG,
                 segment: 'RIDER',
-                isActive: true,
-            },
-        }));
-
-    const existingUnit = await prisma.unit.findFirst({
-        where: {
-            companyId: company.id,
-            name: UNIT_NAME,
-        },
-    });
-
-    const unit =
-        existingUnit ??
-        (await prisma.unit.create({
-            data: {
-                companyId: company.id,
-                name: UNIT_NAME,
                 isActive: true,
             },
         }));
@@ -76,14 +58,12 @@ async function main() {
         update: {
             role: 'OWNER',
             isActive: true,
-            lastUnitId: unit.id,
         },
         create: {
             companyId: company.id,
             userId: adminUser.id,
             role: 'OWNER',
             isActive: true,
-            lastUnitId: unit.id,
         },
     });
 
@@ -95,8 +75,6 @@ async function main() {
             },
         },
         update: {
-            unitId: unit.id,
-
             canAccessDashboard: true,
             canAccessReports: true,
             canAccessRides: true,
@@ -114,7 +92,6 @@ async function main() {
         create: {
             companyId: company.id,
             userId: adminUser.id,
-            unitId: unit.id,
 
             canAccessDashboard: true,
             canAccessReports: true,
@@ -153,7 +130,6 @@ async function main() {
 
     console.log('🌱 Seed Rider concluída!');
     console.log(`Company: ${company.name} (${company.slug ?? '-'})`);
-    console.log(`Unit: ${unit.name}`);
     console.log(`ADMIN: ${ADMIN_EMAIL} / ${PASSWORD}`);
     console.log(`PLATFORM: ${platformUser.email} / ${PASSWORD}`);
 }

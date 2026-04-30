@@ -251,11 +251,11 @@ async function resolveAudience(
     const appointments = await prisma.appointment.findMany({
         where: {
             companyId,
-            clientId: { in: candidateIds },
+            memberId: { in: candidateIds },
             ...(unitId !== UNIT_ALL_VALUE ? { unitId } : {}),
         },
         select: {
-            clientId: true,
+            memberId: true,
             status: true,
             scheduleAt: true,
             servicePriceAtTheTime: true,
@@ -266,10 +266,10 @@ async function resolveAudience(
     const clientPlans = await prisma.clientPlan.findMany({
         where: {
             companyId,
-            clientId: { in: candidateIds },
+            memberId: { in: candidateIds },
         },
         select: {
-            clientId: true,
+            memberId: true,
             status: true,
             expiresAt: true,
             planPriceSnapshot: true,
@@ -279,12 +279,12 @@ async function resolveAudience(
     const completedOrders = await prisma.order.findMany({
         where: {
             companyId,
-            clientId: { in: candidateIds },
+            memberId: { in: candidateIds },
             status: 'COMPLETED',
             ...(unitId !== UNIT_ALL_VALUE ? { unitId } : {}),
         },
         select: {
-            clientId: true,
+            memberId: true,
             totalAmount: true,
         },
     });
@@ -300,14 +300,14 @@ async function resolveAudience(
     >();
 
     for (const apt of appointments) {
-        const arr = appointmentsByClientId.get(apt.clientId) ?? [];
+        const arr = appointmentsByClientId.get(apt.memberId) ?? [];
         arr.push({
             status: apt.status,
             scheduleAt: apt.scheduleAt,
             servicePriceAtTheTime: apt.servicePriceAtTheTime,
             clientPlanId: apt.clientPlanId ?? null,
         });
-        appointmentsByClientId.set(apt.clientId, arr);
+        appointmentsByClientId.set(apt.memberId, arr);
     }
 
     const plansByClientId = new Map<
@@ -320,20 +320,20 @@ async function resolveAudience(
     >();
 
     for (const cp of clientPlans) {
-        const arr = plansByClientId.get(cp.clientId) ?? [];
+        const arr = plansByClientId.get(cp.memberId) ?? [];
         arr.push({
             status: cp.status,
             expiresAt: cp.expiresAt,
             planPriceSnapshot: cp.planPriceSnapshot,
         });
-        plansByClientId.set(cp.clientId, arr);
+        plansByClientId.set(cp.memberId, arr);
     }
 
-    const ordersByClientId = new Map<string, number>();
+    const ordersByMemberId = new Map<string, number>();
     for (const order of completedOrders) {
-        const key = String(order.clientId ?? '');
-        const current = ordersByClientId.get(key) ?? 0;
-        ordersByClientId.set(key, current + Number(order.totalAmount ?? 0));
+        const key = String(order.memberId ?? '');
+        const current = ordersByMemberId.get(key) ?? 0;
+        ordersByMemberId.set(key, current + Number(order.totalAmount ?? 0));
     }
 
     const now = new Date();
@@ -379,7 +379,7 @@ async function resolveAudience(
             return sum + Number(cp.planPriceSnapshot ?? 0);
         }, 0);
 
-        const totalFromOrders = ordersByClientId.get(user.id) ?? 0;
+        const totalFromOrders = ordersByMemberId.get(user.id) ?? 0;
         const totalSpent =
             totalFromAppointments + totalFromPlans + totalFromOrders;
 

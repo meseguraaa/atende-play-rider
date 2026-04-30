@@ -137,7 +137,6 @@ export async function PATCH(request: Request, { params }: Params) {
                         endsAt,
                         description: normalizeString(body.description) || null,
                         observation: normalizeString(body.observation) || null,
-                        unitId: normalizeString(body.unitId) || null,
                         meetingPoints: {
                             create: meetingPoints.map(
                                 (point: any, index: number) => ({

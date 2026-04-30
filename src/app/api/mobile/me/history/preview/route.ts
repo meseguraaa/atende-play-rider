@@ -101,14 +101,14 @@ async function requireMobileAuth(req: Request): Promise<MobileTokenPayload> {
  * ---------------------------------------------------------*/
 async function expirePendingOrdersForClient(args: {
     companyId: string;
-    clientId: string;
+    memberId: string;
 }) {
     const now = new Date();
 
     await prisma.order.updateMany({
         where: {
             companyId: args.companyId,
-            clientId: args.clientId,
+            memberId: args.clientId,
             status: 'PENDING_CHECKIN',
             reservedUntil: { not: null, lte: now },
         },
@@ -239,7 +239,7 @@ export async function GET(req: Request) {
                 }),
 
                 prisma.order.findMany({
-                    // ⚠️ no schema Order.clientId é opcional, mas o filtro funciona
+                    // ⚠️ no schema Order.memberId é opcional, mas o filtro funciona
                     where: { companyId, clientId },
                     orderBy: { createdAt: 'desc' },
                     take: 20,

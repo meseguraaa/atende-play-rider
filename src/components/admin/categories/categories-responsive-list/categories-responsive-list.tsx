@@ -53,7 +53,6 @@ function CategoryCard({ category }: { category: CategoryRowItem }) {
             id: category.id,
             companyId: category.companyId ?? null,
             name: category.name,
-            showInServices: Boolean(category.showInServices),
             showInProducts: Boolean(category.showInProducts),
             showInFaq: Boolean(category.showInFaq),
             isActive: Boolean(category.isActive),
@@ -88,14 +87,9 @@ function CategoryCard({ category }: { category: CategoryRowItem }) {
             </p>
 
             <div className="grid grid-cols-2 gap-3">
-                <Info label="Serviços" value={category.showInServices} />
                 <Info label="Produtos" value={category.showInProducts} />
                 <Info label="FAQ" value={category.showInFaq} />
 
-                <Count
-                    label="Serviços vinculados"
-                    value={category.servicesCount}
-                />
                 <Count
                     label="Produtos vinculados"
                     value={category.productsCount}
@@ -178,18 +172,14 @@ export function CategoriesResponsiveList({
                     <col className="w-20" />
                     <col className="w-20" />
                     <col className="w-20" />
-                    <col className="w-20" />
-                    <col className="w-20" />
                     <col className="w-27.5" />
                 </colgroup>
 
                 <thead>
                     <tr className="border-b border-border-primary bg-background-secondary">
                         <Th>Categoria</Th>
-                        <Th>Serviços</Th>
                         <Th>Produtos</Th>
                         <Th>FAQ</Th>
-                        <Th>Vínc. serviços</Th>
                         <Th>Vínc. produtos</Th>
                         <Th>Vínc. FAQ</Th>
                         <Th align="right">Ações</Th>
@@ -199,7 +189,7 @@ export function CategoriesResponsiveList({
                 <tbody>
                     {list.length === 0 ? (
                         <tr>
-                            <td colSpan={8} className="px-4 py-6 text-center">
+                            <td colSpan={6} className="px-4 py-6 text-center">
                                 Nenhuma categoria cadastrada ainda.
                             </td>
                         </tr>

@@ -22,7 +22,6 @@ type CategoryEditDialogProps = {
         id: string;
         companyId?: string | null;
         name: string;
-        showInServices: boolean;
         showInProducts: boolean;
         showInFaq: boolean;
         isActive: boolean;
@@ -77,22 +76,16 @@ export function CategoryEditDialog({ category }: CategoryEditDialogProps) {
     const [saving, setSaving] = useState(false);
 
     const [name, setName] = useState(category.name ?? '');
-    const [showInServices, setShowInServices] = useState(
-        Boolean(category.showInServices)
-    );
     const [showInProducts, setShowInProducts] = useState(
         Boolean(category.showInProducts)
     );
     const [showInFaq, setShowInFaq] = useState(Boolean(category.showInFaq));
 
     const busy = loading || saving;
-    const requiredOk =
-        name.trim().length > 0 &&
-        (showInServices || showInProducts || showInFaq);
+    const requiredOk = name.trim().length > 0 && (showInProducts || showInFaq);
 
     function resetToInitial() {
         setName(category.name ?? '');
-        setShowInServices(Boolean(category.showInServices));
         setShowInProducts(Boolean(category.showInProducts));
         setShowInFaq(Boolean(category.showInFaq));
     }
@@ -122,7 +115,6 @@ export function CategoryEditDialog({ category }: CategoryEditDialogProps) {
             const c = json.data.category;
 
             setName(c.name ?? '');
-            setShowInServices(Boolean(c.showInServices));
             setShowInProducts(Boolean(c.showInProducts));
             setShowInFaq(Boolean(c.showInFaq));
         } catch {
@@ -148,9 +140,9 @@ export function CategoryEditDialog({ category }: CategoryEditDialogProps) {
             return;
         }
 
-        if (!showInServices && !showInProducts && !showInFaq) {
+        if (!showInProducts && !showInFaq) {
             toast.error(
-                'Marque pelo menos uma opção: Serviços, Produtos e/ou Tirar dúvidas.'
+                'Marque pelo menos uma opção: Produtos e/ou Tirar dúvidas.'
             );
             return;
         }
@@ -160,7 +152,6 @@ export function CategoryEditDialog({ category }: CategoryEditDialogProps) {
         try {
             const payload = {
                 name: nameTrim,
-                showInServices,
                 showInProducts,
                 showInFaq,
             };
@@ -262,18 +253,6 @@ export function CategoryEditDialog({ category }: CategoryEditDialogProps) {
                                 <label className="flex items-center gap-2 text-paragraph-small text-content-primary">
                                     <input
                                         type="checkbox"
-                                        checked={showInServices}
-                                        onChange={(e) =>
-                                            setShowInServices(e.target.checked)
-                                        }
-                                        disabled={busy}
-                                    />
-                                    <span>Serviços</span>
-                                </label>
-
-                                <label className="flex items-center gap-2 text-paragraph-small text-content-primary">
-                                    <input
-                                        type="checkbox"
                                         checked={showInProducts}
                                         onChange={(e) =>
                                             setShowInProducts(e.target.checked)
@@ -296,12 +275,10 @@ export function CategoryEditDialog({ category }: CategoryEditDialogProps) {
                                 </label>
                             </div>
 
-                            {!showInServices &&
-                            !showInProducts &&
-                            !showInFaq ? (
+                            {!showInProducts && !showInFaq ? (
                                 <p className="text-xs text-red-500">
-                                    Marque pelo menos uma opção: Serviços,
-                                    Produtos e/ou Tirar dúvidas.
+                                    Marque pelo menos uma opção: Produtos e/ou
+                                    Tirar dúvidas.
                                 </p>
                             ) : null}
                         </div>

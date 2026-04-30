@@ -36,12 +36,6 @@ export type ProductForRow = {
 
     pickupDeadlineDays: number;
 
-    unitId: string;
-    unitName: string;
-
-    birthdayBenefitEnabled?: boolean;
-    birthdayPriceLevel?: 'BRONZE' | 'PRATA' | 'OURO' | 'DIAMANTE' | null;
-
     hasLevelPrices: boolean;
     levelDiscounts?: Partial<
         Record<'BRONZE' | 'PRATA' | 'OURO' | 'DIAMANTE', number>
@@ -50,13 +44,10 @@ export type ProductForRow = {
     isFeatured: boolean;
 };
 
-type UnitOption = { id: string; name: string; isActive: boolean };
-
 type CategoryOption = {
     id: string;
     name: string;
     isActive: boolean;
-    showInServices: boolean;
     showInProducts: boolean;
 };
 
@@ -64,8 +55,6 @@ type ProductsApiResponse = {
     ok: boolean;
     data?: {
         products: ProductForRow[];
-        units: UnitOption[];
-        activeUnitId: string | null;
         categories: CategoryOption[];
     };
     error?: string;
@@ -97,7 +86,6 @@ export default async function AdminProductsPage() {
         .join('; ');
 
     let products: ProductForRow[] = [];
-    let units: UnitOption[] = [];
     let categories: CategoryOption[] = [];
 
     try {
@@ -120,25 +108,19 @@ export default async function AdminProductsPage() {
 
         if (res.ok && json?.ok && json.data) {
             products = json.data.products ?? [];
-            units = json.data.units ?? [];
             categories = json.data.categories ?? [];
-        } else {
-            products = [];
-            units = [];
-            categories = [];
         }
     } catch {
         products = [];
-        units = [];
         categories = [];
     }
 
-    const activeProducts = (products ?? [])
+    const activeProducts = products
         .filter((p) => Boolean(p.isActive))
         .slice()
         .sort(sortProductsForAdmin);
 
-    const inactiveProducts = (products ?? [])
+    const inactiveProducts = products
         .filter((p) => !Boolean(p.isActive))
         .slice()
         .sort(sortProductsForAdmin);
@@ -151,20 +133,16 @@ export default async function AdminProductsPage() {
                         Produtos
                     </h1>
                     <p className="text-paragraph-medium-size text-content-secondary">
-                        Gerencie os produtos vendidos, estoque, categorias e
-                        comissões.
+                        Gerencie os produtos vendidos, estoque e categorias.
                     </p>
 
                     <div className="mt-3 md:hidden">
-                        <ProductNewDialog
-                            units={units}
-                            categories={categories}
-                        />
+                        <ProductNewDialog categories={categories} />
                     </div>
                 </div>
 
                 <div className="hidden md:block">
-                    <ProductNewDialog units={units} categories={categories} />
+                    <ProductNewDialog categories={categories} />
                 </div>
             </header>
 

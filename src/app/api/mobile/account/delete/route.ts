@@ -1,16 +1,16 @@
 // src/app/api/mobile/account/delete/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import crypto from 'node:crypto';
+
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 type MobileTokenPayload = {
     sub: string;
-    role?: 'CLIENT' | 'PROFESSIONAL' | 'ADMIN';
+    role?: 'CLIENT' | 'ADMIN' | 'PLATFORM_OWNER' | 'PLATFORM_STAFF';
     companyId: string;
     profile_complete?: boolean;
-
     email?: string;
     name?: string | null;
 };
@@ -45,6 +45,7 @@ function jsonOk(data: unknown, status = 200) {
 function getBearerToken(req: Request): string | null {
     const auth =
         req.headers.get('authorization') || req.headers.get('Authorization');
+
     if (!auth) return null;
 
     const [type, token] = auth.split(' ');
@@ -53,9 +54,6 @@ function getBearerToken(req: Request): string | null {
     return token.trim();
 }
 
-// -----------------------------
-// ✅ JWT HS256 inline (igual /me)
-// -----------------------------
 class InvalidAppTokenError extends Error {
     constructor(message = 'invalid token payload') {
         super(message);
@@ -66,6 +64,7 @@ class InvalidAppTokenError extends Error {
 function base64UrlDecodeToBuffer(input: string) {
     const pad =
         input.length % 4 === 0 ? '' : '='.repeat(4 - (input.length % 4));
+
     const b64 = input.replace(/-/g, '+').replace(/_/g, '/') + pad;
     return Buffer.from(b64, 'base64');
 }
@@ -77,6 +76,7 @@ function base64UrlDecodeJson<T = any>(input: string): T {
 
 function base64UrlEncode(input: Buffer | string) {
     const buf = typeof input === 'string' ? Buffer.from(input) : input;
+
     return buf
         .toString('base64')
         .replace(/=/g, '')
@@ -104,21 +104,24 @@ async function verifyAppJwt(token: string): Promise<MobileTokenPayload> {
     if (!secret) throw new InvalidAppTokenError('missing token payload');
 
     const parts = String(token || '').split('.');
-    if (parts.length !== 3)
+    if (parts.length !== 3) {
         throw new InvalidAppTokenError('invalid token payload');
+    }
 
     const [h, p, s] = parts;
 
     const expected = signHs256(secret, `${h}.${p}`);
-    if (expected !== s) throw new InvalidAppTokenError('invalid token payload');
+    if (expected !== s) {
+        throw new InvalidAppTokenError('invalid token payload');
+    }
 
     const payload = base64UrlDecodeJson<any>(p);
 
-    // exp (se existir)
     if (payload?.exp) {
         const now = Math.floor(Date.now() / 1000);
-        if (Number(payload.exp) < now)
+        if (Number(payload.exp) < now) {
             throw new InvalidAppTokenError('invalid token payload');
+        }
     }
 
     const sub = String(payload?.sub || '').trim();
@@ -130,43 +133,29 @@ async function verifyAppJwt(token: string): Promise<MobileTokenPayload> {
     return payload as MobileTokenPayload;
 }
 
-// -----------------------------
-// Helpers
-// -----------------------------
 function normalizeString(v: unknown): string {
     return String(v ?? '').trim();
 }
 
-function buildDeletedEmail(args: { userId: string; prevEmail: string }) {
-    // Objetivo: liberar o e-mail original para o usuário voltar no futuro.
-    // Usamos domínio .invalid (reservado p/ docs/testes) para evitar envio real.
+function buildDeletedEmail(args: { userId: string }) {
     const id = args.userId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24) || 'user';
     const ts = Date.now();
-    const local = `deleted+${id}.${ts}`;
-    return `${local}@atendeplay.invalid`.toLowerCase();
-}
 
-// Para anonimizar telefone do Appointment (campo é obrigatório no schema)
-function anonymizedAppointmentPhone() {
-    // Mantém formato de "string" sem PII.
-    return '00000000000';
-}
-
-function anonymizedAppointmentName() {
-    return 'Cliente removido';
+    return `deleted+${id}.${ts}@atendeplay.invalid`.toLowerCase();
 }
 
 /**
- * ✅ Soft delete + anonimização (mantém histórico)
- * - Desativa o usuário e remove PII
- * - Desconecta logins (Accounts/Sessions)
- * - Anonimiza Appointment.clientName e Appointment.phone
- * - Mantém agendamentos, checkouts, dashboards, etc.
- * - Libera o e-mail original para permitir novo cadastro no futuro
+ * Soft delete + anonimização.
+ *
+ * Mantém histórico financeiro e operacional, mas remove PII do usuário.
  */
-async function softDeleteAndAnonymizeUser(userId: string) {
+async function softDeleteAndAnonymizeUser(args: {
+    userId: string;
+    companyId: string;
+}) {
+    const { userId, companyId } = args;
+
     await prisma.$transaction(async (tx) => {
-        // 0) Carrega user atual (precisamos do email para liberar)
         const user = await tx.user.findUnique({
             where: { id: userId },
             select: {
@@ -183,101 +172,139 @@ async function softDeleteAndAnonymizeUser(userId: string) {
             throw e;
         }
 
-        // 1) Se por acaso estiver vinculado a Professional, solta o vínculo (pra não carregar PII por lá)
-        // (relation em Professional.userId não tem onDelete)
-        await tx.professional.updateMany({
-            where: { userId },
-            data: { userId: null },
-        });
-
-        // 2) Desconecta métodos de login e sessões (Apple/Google/credenciais)
-        await tx.account.deleteMany({ where: { userId } });
-        await tx.session.deleteMany({ where: { userId } });
-
-        // 3) Anonimiza agendamentos do cliente (mantém para financeiro/dash)
-        await tx.appointment.updateMany({
-            where: { clientId: userId },
-            data: {
-                clientName: anonymizedAppointmentName(),
-                phone: anonymizedAppointmentPhone(),
+        const membership = await tx.companyMember.findFirst({
+            where: {
+                userId,
+                companyId,
+            },
+            select: {
+                id: true,
             },
         });
 
-        // 4) Orders: remove vínculo do clientId para reduzir PII, mantendo o histórico financeiro
+        if (!membership) {
+            const e: any = new Error('user_not_found');
+            e.code = 'USER_NOT_FOUND';
+            throw e;
+        }
+
+        await tx.account.deleteMany({
+            where: { userId },
+        });
+
+        await tx.session.deleteMany({
+            where: { userId },
+        });
+
         await tx.order.updateMany({
-            where: { clientId: userId },
-            data: { clientId: null },
+            where: {
+                memberId: userId,
+            },
+            data: {
+                memberId: null,
+            },
         });
 
-        // 5) AnalyticsEvent: remove vínculo ao user (PII) mantendo telemetria agregada
         await tx.analyticsEvent.updateMany({
-            where: { userId },
-            data: { userId: null },
+            where: {
+                userId,
+            },
+            data: {
+                userId: null,
+            },
         });
 
-        // 6) CompanyMember: desativa memberships (opcional, mas bom para não aparecer como ativo)
+        await tx.pushDevice.updateMany({
+            where: {
+                userId,
+            },
+            data: {
+                isActive: false,
+            },
+        });
+
+        await tx.memberVehicle.updateMany({
+            where: {
+                userId,
+            },
+            data: {
+                brand: null,
+                model: null,
+                plate: null,
+                cylinderCc: null,
+                color: null,
+                year: null,
+                isMain: false,
+                isActive: false,
+            },
+        });
+
         await tx.companyMember.updateMany({
-            where: { userId },
-            data: { isActive: false },
+            where: {
+                userId,
+            },
+            data: {
+                isActive: false,
+            },
         });
 
-        // 7) Finalmente: anonimiza o User, desativa, e troca email para liberar reutilização
-        const newEmail = buildDeletedEmail({
-            userId,
-            prevEmail: user.email,
+        await tx.passwordResetToken.updateMany({
+            where: {
+                userId,
+                usedAt: null,
+            },
+            data: {
+                usedAt: new Date(),
+            },
         });
 
         await tx.user.update({
-            where: { id: userId },
+            where: {
+                id: userId,
+            },
             data: {
                 isActive: false,
                 isOwner: false,
-
-                // libera re-cadastro com o email original:
-                email: newEmail,
-
-                // remove PII:
+                email: buildDeletedEmail({ userId }),
                 name: null,
                 image: null,
                 phone: null,
                 birthday: null,
-
-                // impede login por senha
                 passwordHash: null,
-
-                // remove status
                 emailVerified: null,
-
-                // mantém role como está (não impacta histórico)
+            },
+            select: {
+                id: true,
             },
         });
     });
 }
 
-// -----------------------------
-// Handler
-// -----------------------------
 export async function POST(req: NextRequest) {
     try {
         const bearer = getBearerToken(req);
         if (!bearer) return jsonErr('missing_token', 401);
 
         const payload = await verifyAppJwt(bearer);
+
         const userId = normalizeString(payload?.sub);
+        const companyId = normalizeString(payload?.companyId);
 
         if (!userId) return jsonErr('invalid_token', 401);
+        if (!companyId) return jsonErr('missing_company_id', 401);
 
         const body = await req.json().catch(() => null);
-        if (!body || typeof body !== 'object') return jsonErr('invalid_body');
+        if (!body || typeof body !== 'object') {
+            return jsonErr('invalid_body');
+        }
 
-        // ✅ confirmação anti-acidente
-        // o app deve enviar { "confirm": "DELETE" }
         const confirm = normalizeString((body as any).confirm).toUpperCase();
+
         if (confirm !== 'DELETE') {
             return jsonErr('confirm_required');
         }
 
-        await softDeleteAndAnonymizeUser(userId);
+        await softDeleteAndAnonymizeUser({ userId, companyId });
 
         return jsonOk({ deleted: true });
     } catch (err: any) {
@@ -301,6 +328,7 @@ export async function POST(req: NextRequest) {
         }
 
         console.error('[api/mobile/account/delete] error:', err);
+
         return jsonErr('server_error', 500);
     }
 }

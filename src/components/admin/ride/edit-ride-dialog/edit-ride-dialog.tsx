@@ -37,7 +37,6 @@ type RideImageFormItem = {
 
 export type RideToEdit = {
     id: string;
-    unitId: string | null;
     title: string;
     destination: string;
     description: string | null;
@@ -51,8 +50,6 @@ export type RideToEdit = {
 type Props = {
     children?: React.ReactNode;
     ride: RideToEdit;
-    forcedUnitId?: string | null;
-    units?: UnitOption[];
 };
 
 type UploadResponse =
@@ -86,12 +83,7 @@ function toDatetimeLocalValue(value: string | Date | null) {
     )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-export default function EditRideDialog({
-    children,
-    ride,
-    forcedUnitId = null,
-    units = [],
-}: Props) {
+export default function EditRideDialog({ children, ride }: Props) {
     const router = useRouter();
 
     const [open, setOpen] = React.useState(false);
@@ -104,7 +96,6 @@ export default function EditRideDialog({
     const [endsAt, setEndsAt] = React.useState('');
     const [description, setDescription] = React.useState('');
     const [observation, setObservation] = React.useState('');
-    const [unitId, setUnitId] = React.useState('');
     const [meetingPoints, setMeetingPoints] = React.useState<
         MeetingPointFormItem[]
     >([{ name: '', address: '' }]);
@@ -117,7 +108,6 @@ export default function EditRideDialog({
         setEndsAt(toDatetimeLocalValue(ride.endsAt));
         setDescription(ride.description ?? '');
         setObservation(ride.observation ?? '');
-        setUnitId(forcedUnitId ?? ride.unitId ?? '');
 
         setMeetingPoints(
             ride.meetingPoints?.length
@@ -275,7 +265,6 @@ export default function EditRideDialog({
                     endsAt: endsAtDate ? endsAtDate.toISOString() : null,
                     description: description.trim() || null,
                     observation: observation.trim() || null,
-                    unitId: unitId || null,
                     meetingPoints: cleanMeetingPoints,
                     images,
                 }),
@@ -340,29 +329,6 @@ export default function EditRideDialog({
                             placeholder="Ex: Serra Negra - SP"
                         />
                     </div>
-
-                    {units.length > 0 && !forcedUnitId ? (
-                        <div className="space-y-2">
-                            <p className="text-label-medium-size text-content-primary">
-                                Grupo / unidade
-                            </p>
-
-                            <select
-                                value={unitId}
-                                onChange={(event) =>
-                                    setUnitId(event.target.value)
-                                }
-                                className="flex h-12 w-full rounded-md border border-border-primary bg-background-tertiary px-3 py-2 text-sm text-content-primary focus:border-border-brand focus-visible:outline-none"
-                            >
-                                <option value="">Sem unidade específica</option>
-                                {units.map((unit) => (
-                                    <option key={unit.id} value={unit.id}>
-                                        {unit.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    ) : null}
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">

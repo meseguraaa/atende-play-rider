@@ -12,10 +12,8 @@ export type CategoryRowItem = {
     companyId: string;
     name: string;
     isActive: boolean;
-    showInServices: boolean;
     showInProducts: boolean;
     showInFaq: boolean;
-    servicesCount: number;
     productsCount: number;
     faqCount: number;
 };
@@ -66,7 +64,6 @@ export function CategoryRow({ category }: CategoryRowProps) {
             id: category.id,
             companyId: category.companyId ?? null,
             name: category.name,
-            showInServices: Boolean(category.showInServices),
             showInProducts: Boolean(category.showInProducts),
             showInFaq: Boolean(category.showInFaq),
             isActive: Boolean(category.isActive),
@@ -97,15 +94,9 @@ export function CategoryRow({ category }: CategoryRowProps) {
     return (
         <tr className="border-t border-border-primary">
             <td className="px-4 py-3">
-                <div className="space-y-0.5">
-                    <p className="text-paragraph-medium-size text-content-primary">
-                        {category.name}
-                    </p>
-                </div>
-            </td>
-
-            <td className="px-4 py-3 text-paragraph-small text-content-secondary">
-                {category.showInServices ? 'Sim' : 'Não'}
+                <p className="text-paragraph-medium-size text-content-primary">
+                    {category.name}
+                </p>
             </td>
 
             <td className="px-4 py-3 text-paragraph-small text-content-secondary">
@@ -114,10 +105,6 @@ export function CategoryRow({ category }: CategoryRowProps) {
 
             <td className="px-4 py-3 text-paragraph-small text-content-secondary">
                 {category.showInFaq ? 'Sim' : 'Não'}
-            </td>
-
-            <td className="px-4 py-3 text-paragraph-small text-content-secondary">
-                {category.servicesCount}
             </td>
 
             <td className="px-4 py-3 text-paragraph-small text-content-secondary">

@@ -1,3 +1,4 @@
+// src/app/api/mobile/me/history/route.ts
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 import { prisma } from '@/lib/prisma';
@@ -12,7 +13,7 @@ type MobileTokenPayload = {
     role?: 'CLIENT' | 'PROFESSIONAL' | 'ADMIN' | 'BARBER';
     email?: string;
     name?: string | null;
-    companyId: string; // ✅ multi-tenant obrigatório
+    companyId: string;
 };
 
 type HistoryItem = {
@@ -49,6 +50,7 @@ async function requireMobileAuth(req: Request): Promise<MobileTokenPayload> {
     const token = auth.toLowerCase().startsWith('bearer ')
         ? auth.slice(7).trim()
         : '';
+
     if (!token) throw new Error('missing_token');
 
     const { payload } = await jwtVerify(token, getJwtSecretKey());
@@ -56,18 +58,16 @@ async function requireMobileAuth(req: Request): Promise<MobileTokenPayload> {
     const sub = String((payload as any)?.sub || '').trim();
     if (!sub) throw new Error('invalid_token');
 
-    // ✅ Prefer token companyId; fallback to header (compat com clientes antigos)
     const tokenCompanyId =
         typeof (payload as any)?.companyId === 'string'
             ? String((payload as any).companyId).trim()
             : '';
 
     const headerCompanyId = normalizeCompanyIdFromHeader(req);
-
     const companyId = tokenCompanyId || headerCompanyId;
+
     if (!companyId) throw new Error('companyid_missing');
 
-    // ✅ anti-spoof: user precisa ter membership nesse companyId
     const membership = await prisma.companyMember.findFirst({
         where: { userId: sub, companyId, isActive: true },
         select: { id: true, role: true },
@@ -84,22 +84,16 @@ async function requireMobileAuth(req: Request): Promise<MobileTokenPayload> {
     };
 }
 
-/* ---------------------------------------------------------
- * ✅ Expiração on-demand (sem cron)
- * - cancela pedidos PENDING_CHECKIN vencidos
- * - faz sumir da sacolinha (view=bag)
- * - entra no histórico como CANCELED (view=history)
- * ---------------------------------------------------------*/
-async function expirePendingOrdersForClient(args: {
+async function expirePendingOrdersForMember(args: {
     companyId: string;
-    clientId: string;
+    memberId: string;
 }) {
     const now = new Date();
 
     await prisma.order.updateMany({
         where: {
             companyId: args.companyId,
-            clientId: args.clientId,
+            memberId: args.memberId,
             status: 'PENDING_CHECKIN',
             reservedUntil: { not: null, lte: now },
         },
@@ -112,58 +106,25 @@ async function expirePendingOrdersForClient(args: {
 
 function formatPreviewDate(d: Date) {
     if (isToday(d)) return `Hoje às ${format(d, 'HH:mm', { locale: ptBR })}`;
-    if (isYesterday(d))
+    if (isYesterday(d)) {
         return `Ontem às ${format(d, 'HH:mm', { locale: ptBR })}`;
+    }
+
     return format(d, 'dd/MM/yyyy • HH:mm', { locale: ptBR });
 }
 
-function safeDate(input: any) {
-    const d = new Date(input ?? Date.now());
+function safeDate(input: unknown) {
+    const d = new Date((input as any) ?? Date.now());
     return Number.isFinite(d.getTime()) ? d : new Date();
-}
-
-function pickApptOccurredAt(appt: any) {
-    const status = String(appt?.status ?? '').toUpperCase();
-
-    // ✅ datas semânticas no seu schema
-    const d =
-        status === 'DONE'
-            ? (appt?.doneAt ?? appt?.checkedOutAt ?? appt?.updatedAt)
-            : status === 'CANCELED'
-              ? (appt?.cancelledAt ?? appt?.updatedAt)
-              : (appt?.updatedAt ?? appt?.scheduleAt ?? appt?.createdAt);
-
-    return safeDate(d);
 }
 
 function pickOrderOccurredAt(order: any) {
     const status = String(order?.status ?? '').toUpperCase();
     const isFinal = status === 'COMPLETED' || status === 'CANCELED';
-    const d = isFinal
-        ? (order?.updatedAt ?? order?.createdAt)
-        : order?.createdAt;
-    return safeDate(d);
-}
 
-function safeStars(n: any) {
-    const v = Number(n ?? 0);
-    if (!Number.isFinite(v) || v <= 0) return '';
-    const clamped = Math.max(1, Math.min(5, Math.round(v)));
-    return '★'.repeat(clamped);
-}
-
-function pickProfessionalName(appt: any) {
-    const s = String(appt?.professional?.name ?? '').trim();
-    return s || 'Profissional';
-}
-
-function pickServiceName(appt: any) {
-    const candidates = [appt?.service?.name, appt?.description];
-    for (const c of candidates) {
-        const s = String(c ?? '').trim();
-        if (s) return s;
-    }
-    return 'Serviço';
+    return safeDate(
+        isFinal ? (order?.updatedAt ?? order?.createdAt) : order?.createdAt
+    );
 }
 
 export async function OPTIONS() {
@@ -181,180 +142,71 @@ export async function GET(req: Request) {
             );
         }
 
-        const clientId = me.sub;
+        const memberId = me.sub;
         const companyId = me.companyId;
 
-        // ✅ Passo 1 do histórico: expirar pedidos vencidos (on-demand)
-        await expirePendingOrdersForClient({ companyId, clientId });
+        await expirePendingOrdersForMember({ companyId, memberId });
 
-        const [doneAppointments, canceledAppointments, orders, reviewedAppts] =
-            await Promise.all([
-                prisma.appointment.findMany({
-                    where: { companyId, clientId, status: 'DONE' },
-                    orderBy: { scheduleAt: 'desc' },
-                    take: 10,
+        const orders = await prisma.order.findMany({
+            where: { companyId, memberId },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            select: {
+                id: true,
+                status: true,
+                createdAt: true,
+                updatedAt: true,
+                items: {
                     select: {
-                        id: true,
-                        status: true,
-                        scheduleAt: true,
-                        updatedAt: true,
-                        createdAt: true,
-                        doneAt: true,
-                        checkedOutAt: true,
-                        description: true,
-                        professional: { select: { name: true } },
-                        service: { select: { name: true } },
-                    },
-                }),
-
-                prisma.appointment.findMany({
-                    where: { companyId, clientId, status: 'CANCELED' },
-                    orderBy: { scheduleAt: 'desc' },
-                    take: 10,
-                    select: {
-                        id: true,
-                        status: true,
-                        scheduleAt: true,
-                        updatedAt: true,
-                        createdAt: true,
-                        cancelledAt: true,
-                        description: true,
-                        professional: { select: { name: true } },
-                        service: { select: { name: true } },
-                    },
-                }),
-
-                prisma.order.findMany({
-                    where: { companyId, clientId },
-                    orderBy: { createdAt: 'desc' },
-                    take: 20,
-                    select: {
-                        id: true,
-                        status: true,
-                        createdAt: true,
-                        updatedAt: true,
-                        items: {
+                        quantity: true,
+                        productId: true,
+                        product: {
                             select: {
-                                quantity: true,
-                                productId: true,
-                                product: { select: { id: true, name: true } },
-                                service: { select: { name: true } },
+                                id: true,
+                                name: true,
                             },
                         },
                     },
-                }),
+                },
+            },
+        });
 
-                prisma.appointment.findMany({
-                    where: {
-                        companyId,
-                        clientId,
-                        status: 'DONE',
-                        review: { isNot: null },
-                    },
-                    orderBy: { updatedAt: 'desc' },
-                    take: 10,
-                    select: {
-                        id: true,
-                        status: true,
-                        updatedAt: true,
-                        createdAt: true,
-                        description: true,
-                        professional: { select: { name: true } },
-                        service: { select: { name: true } },
-                        review: {
-                            select: {
-                                rating: true,
-                                createdAt: true,
-                                updatedAt: true,
-                            },
-                        },
-                    },
-                }),
-            ]);
-
-        // ✅ só pedidos que tem produto (não serviço) e não estão pendentes-checkin
-        const productOrders = (orders as any[])
+        const productOrders = orders
             .filter((order) =>
-                Array.isArray(order?.items)
+                Array.isArray(order.items)
                     ? order.items.some(
-                          (item: any) =>
-                              item?.productId != null ||
-                              item?.product?.id != null
+                          (item) =>
+                              item.productId != null || item.product?.id != null
                       )
                     : false
             )
             .filter((order) => {
-                const st = String(order?.status ?? '').toUpperCase();
-                return st !== 'PENDING_CHECKIN';
+                const status = String(order.status ?? '').toUpperCase();
+                return status !== 'PENDING_CHECKIN';
             });
 
-        // ----------------------------
-        // ✅ Monta seções separadas (contrato do app)
-        // ----------------------------
-
-        const done: HistoryItem[] = (doneAppointments as any[])
-            .map((appt) => {
-                const occurredAt = pickApptOccurredAt(appt);
-                const prof = pickProfessionalName(appt);
-                const svc = pickServiceName(appt);
-
-                return {
-                    occurredAt,
-                    item: {
-                        id: `done:${appt.id}`,
-                        title: svc,
-                        description: `Concluído • ${prof}`,
-                        date: formatPreviewDate(occurredAt),
-                        icon: 'scissors',
-                    } satisfies HistoryItem,
-                };
-            })
-            .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
-            .map((x) => x.item)
-            .slice(0, 10);
-
-        const canceled: HistoryItem[] = (canceledAppointments as any[])
-            .map((appt) => {
-                const occurredAt = pickApptOccurredAt(appt);
-                const prof = pickProfessionalName(appt);
-                const svc = pickServiceName(appt);
-
-                return {
-                    occurredAt,
-                    item: {
-                        id: `cancel:${appt.id}`,
-                        title: svc,
-                        description: `Cancelado • ${prof}`,
-                        date: formatPreviewDate(occurredAt),
-                        icon: 'calendar',
-                    } satisfies HistoryItem,
-                };
-            })
-            .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
-            .map((x) => x.item)
-            .slice(0, 10);
-
-        const ordersOut: HistoryItem[] = (productOrders as any[])
+        const ordersOut: HistoryItem[] = productOrders
             .map((order) => {
                 const occurredAt = pickOrderOccurredAt(order);
 
-                const itemsLabel = Array.isArray(order?.items)
+                const itemsLabel = Array.isArray(order.items)
                     ? order.items
                           .filter(
-                              (i: any) =>
-                                  i?.productId != null || i?.product?.id != null
+                              (item) =>
+                                  item.productId != null ||
+                                  item.product?.id != null
                           )
                           .map(
-                              (i: any) =>
-                                  `${Number(i?.quantity ?? 1)}x ${
-                                      i?.product?.name ?? 'Produto'
+                              (item) =>
+                                  `${Number(item.quantity ?? 1)}x ${
+                                      item.product?.name ?? 'Produto'
                                   }`
                           )
                           .filter(Boolean)
                           .join(', ')
                     : '';
 
-                const status = String(order?.status ?? '').toUpperCase();
+                const status = String(order.status ?? '').toUpperCase();
                 const statusLabel =
                     status === 'COMPLETED'
                         ? 'Retirado'
@@ -379,52 +231,17 @@ export async function GET(req: Request) {
             .map((x) => x.item)
             .slice(0, 20);
 
-        const reviews: HistoryItem[] = (reviewedAppts as any[])
-            .map((appt) => {
-                const reviewAt =
-                    appt?.review?.createdAt ?? appt?.review?.updatedAt;
-
-                const occurredAt = safeDate(
-                    reviewAt ?? appt?.updatedAt ?? appt?.createdAt
-                );
-
-                const prof = pickProfessionalName(appt);
-                const svc = pickServiceName(appt);
-                const ratingLabel = appt?.review?.rating
-                    ? safeStars(appt.review.rating)
-                    : '';
-
-                return {
-                    occurredAt,
-                    item: {
-                        id: `review:${appt.id}`,
-                        title: 'Avaliação enviada',
-                        description: ratingLabel
-                            ? `${prof} • ${svc} • ${ratingLabel}`
-                            : `${prof} • ${svc}`,
-                        date: formatPreviewDate(occurredAt),
-                        icon: 'star',
-                    } satisfies HistoryItem,
-                };
-            })
-            .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
-            .map((x) => x.item)
-            .slice(0, 10);
-
         const _debug =
             process.env.NODE_ENV === 'development'
                 ? {
                       companyId,
-                      doneCount: (doneAppointments as any[]).length,
-                      canceledCount: (canceledAppointments as any[]).length,
-                      ordersTotal: (orders as any[]).length,
+                      ordersTotal: orders.length,
                       productOrdersCount: productOrders.length,
-                      reviewsDoneCount: (reviewedAppts as any[]).length,
                       out: {
-                          done: done.length,
-                          canceled: canceled.length,
+                          done: 0,
+                          canceled: 0,
                           orders: ordersOut.length,
-                          reviews: reviews.length,
+                          reviews: 0,
                       },
                   }
                 : undefined;
@@ -432,9 +249,9 @@ export async function GET(req: Request) {
         return NextResponse.json(
             {
                 ok: true,
-                reviews,
-                done,
-                canceled,
+                reviews: [],
+                done: [],
+                canceled: [],
                 orders: ordersOut,
                 _debug,
             },
@@ -450,7 +267,7 @@ export async function GET(req: Request) {
             lower.includes('jwt') ||
             lower.includes('signature') ||
             lower.includes('companyid_missing') ||
-            lower.includes('companyId_missing') ||
+            lower.includes('companyid_missing') ||
             lower.includes('forbidden_company');
 
         return NextResponse.json(

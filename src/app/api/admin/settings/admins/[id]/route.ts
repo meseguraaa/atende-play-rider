@@ -6,15 +6,15 @@ import { requireAdminForModuleApi } from '@/lib/admin-permissions';
 type PermissionsPayload = {
     canAccessDashboard: boolean;
     canAccessReports: boolean;
-    canAccessAppointments: boolean;
+    canAccessRides: boolean;
     canAccessCategories: boolean;
     canAccessReviews: boolean;
     canAccessFaq: boolean;
+    canAccessFaqReports: boolean;
     canAccessCommunication: boolean;
     canAccessProducts: boolean;
     canAccessPartners: boolean;
-    canAccessClients: boolean;
-    canAccessClientLevels: boolean;
+    canAccessMembers: boolean;
     canAccessFinance: boolean;
     canAccessSettings: boolean;
 };
@@ -27,6 +27,7 @@ type PatchAdminPayload = {
 function jsonOk<T>(data: T, init?: ResponseInit) {
     return NextResponse.json({ ok: true, data } as const, init);
 }
+
 function jsonErr(error: string, status = 400) {
     return NextResponse.json({ ok: false, error } as const, { status });
 }
@@ -37,17 +38,17 @@ function normalizePermissions(
     return {
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
         canAccessReports: Boolean(partial?.canAccessReports ?? false),
-        canAccessAppointments: Boolean(partial?.canAccessAppointments ?? true),
+        canAccessRides: Boolean(partial?.canAccessRides ?? true),
         canAccessCategories: Boolean(partial?.canAccessCategories ?? false),
         canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
+        canAccessFaq: Boolean(partial?.canAccessFaq ?? false),
+        canAccessFaqReports: Boolean(partial?.canAccessFaqReports ?? false),
         canAccessCommunication: Boolean(
             partial?.canAccessCommunication ?? false
         ),
-        canAccessFaq: Boolean(partial?.canAccessFaq ?? false),
         canAccessProducts: Boolean(partial?.canAccessProducts ?? false),
         canAccessPartners: Boolean(partial?.canAccessPartners ?? false),
-        canAccessClients: Boolean(partial?.canAccessClients ?? true),
-        canAccessClientLevels: Boolean(partial?.canAccessClientLevels ?? false),
+        canAccessMembers: Boolean(partial?.canAccessMembers ?? true),
         canAccessFinance: Boolean(partial?.canAccessFinance ?? false),
         canAccessSettings: Boolean(partial?.canAccessSettings ?? false),
     };
@@ -61,15 +62,15 @@ function sanitizePatchPermissions(
     const keys: (keyof PermissionsPayload)[] = [
         'canAccessDashboard',
         'canAccessReports',
-        'canAccessAppointments',
+        'canAccessRides',
         'canAccessCategories',
         'canAccessReviews',
         'canAccessFaq',
+        'canAccessFaqReports',
         'canAccessCommunication',
         'canAccessProducts',
         'canAccessPartners',
-        'canAccessClients',
-        'canAccessClientLevels',
+        'canAccessMembers',
         'canAccessFinance',
         'canAccessSettings',
     ];
@@ -79,9 +80,7 @@ function sanitizePatchPermissions(
 
     for (const k of keys) {
         if (k in patch) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const raw = (patch as any)[k];
-            out[k] = Boolean(raw);
+            out[k] = Boolean((patch as any)[k]);
             hasAny = true;
         }
     }
@@ -94,6 +93,7 @@ function mergePermissions(params: {
     patch?: Partial<PermissionsPayload>;
 }): PermissionsPayload {
     const p = params.patch ?? {};
+
     return {
         canAccessDashboard:
             p.canAccessDashboard !== undefined
@@ -103,10 +103,10 @@ function mergePermissions(params: {
             p.canAccessReports !== undefined
                 ? Boolean(p.canAccessReports)
                 : params.current.canAccessReports,
-        canAccessAppointments:
-            p.canAccessAppointments !== undefined
-                ? Boolean(p.canAccessAppointments)
-                : params.current.canAccessAppointments,
+        canAccessRides:
+            p.canAccessRides !== undefined
+                ? Boolean(p.canAccessRides)
+                : params.current.canAccessRides,
         canAccessCategories:
             p.canAccessCategories !== undefined
                 ? Boolean(p.canAccessCategories)
@@ -119,6 +119,10 @@ function mergePermissions(params: {
             p.canAccessFaq !== undefined
                 ? Boolean(p.canAccessFaq)
                 : params.current.canAccessFaq,
+        canAccessFaqReports:
+            p.canAccessFaqReports !== undefined
+                ? Boolean(p.canAccessFaqReports)
+                : params.current.canAccessFaqReports,
         canAccessCommunication:
             p.canAccessCommunication !== undefined
                 ? Boolean(p.canAccessCommunication)
@@ -131,15 +135,10 @@ function mergePermissions(params: {
             p.canAccessPartners !== undefined
                 ? Boolean(p.canAccessPartners)
                 : params.current.canAccessPartners,
-
-        canAccessClients:
-            p.canAccessClients !== undefined
-                ? Boolean(p.canAccessClients)
-                : params.current.canAccessClients,
-        canAccessClientLevels:
-            p.canAccessClientLevels !== undefined
-                ? Boolean(p.canAccessClientLevels)
-                : params.current.canAccessClientLevels,
+        canAccessMembers:
+            p.canAccessMembers !== undefined
+                ? Boolean(p.canAccessMembers)
+                : params.current.canAccessMembers,
         canAccessFinance:
             p.canAccessFinance !== undefined
                 ? Boolean(p.canAccessFinance)
@@ -151,7 +150,6 @@ function mergePermissions(params: {
     };
 }
 
-// ✅ Next (validator do projeto): params vem como Promise
 type RouteCtx = { params: Promise<{ id: string }> };
 
 async function getParamsId(ctx: RouteCtx): Promise<string> {
@@ -160,12 +158,10 @@ async function getParamsId(ctx: RouteCtx): Promise<string> {
 }
 
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
-    // ✅ API gate: precisa estar logado e ter SETTINGS
     const auth = await requireAdminForModuleApi('SETTINGS');
     if (auth instanceof NextResponse) return auth;
     const session = auth;
 
-    // ✅ só OWNER pode alterar admins
     if (!session.isOwner) {
         return jsonErr('forbidden_owner_only', 403);
     }
@@ -174,6 +170,7 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
     if (!targetUserId) return jsonErr('invalid_id', 400);
 
     let body: PatchAdminPayload | null = null;
+
     try {
         body = (await req.json()) as PatchAdminPayload;
     } catch {
@@ -188,7 +185,6 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
         return jsonErr('nothing_to_update', 400);
     }
 
-    // Confere se o usuário alvo pertence à empresa e é admin/owner
     const membership = await prisma.companyMember.findFirst({
         where: {
             companyId: session.companyId,
@@ -203,12 +199,10 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
         return jsonErr('target_not_found', 404);
     }
 
-    // Não deixa editar OWNER
     if (membership.role === 'OWNER') {
         return jsonErr('forbidden_cannot_edit_owner', 403);
     }
 
-    // Confere user
     const targetUser = await prisma.user.findUnique({
         where: { id: targetUserId },
         select: {
@@ -227,14 +221,12 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
         return jsonErr('target_not_found', 404);
     }
 
-    // Sanidade: precisa ser ADMIN no user
     if (targetUser.role !== 'ADMIN') {
         return jsonErr('target_not_admin', 400);
     }
 
     try {
         const updated = await prisma.$transaction(async (tx) => {
-            // Pega permissões atuais (ou defaults do painel, se não existir)
             const currentAccess = await tx.adminAccess.findFirst({
                 where: {
                     companyId: session.companyId,
@@ -244,15 +236,15 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                     id: true,
                     canAccessDashboard: true,
                     canAccessReports: true,
-                    canAccessAppointments: true,
+                    canAccessRides: true,
                     canAccessCategories: true,
                     canAccessReviews: true,
                     canAccessFaq: true,
+                    canAccessFaqReports: true,
                     canAccessCommunication: true,
                     canAccessProducts: true,
                     canAccessPartners: true,
-                    canAccessClients: true,
-                    canAccessClientLevels: true,
+                    canAccessMembers: true,
                     canAccessFinance: true,
                     canAccessSettings: true,
                 },
@@ -262,21 +254,16 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                 ? {
                       canAccessDashboard: !!currentAccess.canAccessDashboard,
                       canAccessReports: !!currentAccess.canAccessReports,
-                      canAccessAppointments:
-                          !!currentAccess.canAccessAppointments,
+                      canAccessRides: !!currentAccess.canAccessRides,
                       canAccessCategories: !!currentAccess.canAccessCategories,
                       canAccessReviews: !!currentAccess.canAccessReviews,
                       canAccessFaq: !!currentAccess.canAccessFaq,
+                      canAccessFaqReports: !!currentAccess.canAccessFaqReports,
                       canAccessCommunication:
                           !!currentAccess.canAccessCommunication,
                       canAccessProducts: !!currentAccess.canAccessProducts,
-
-                      // ✅ NOVO
                       canAccessPartners: !!currentAccess.canAccessPartners,
-
-                      canAccessClients: !!currentAccess.canAccessClients,
-                      canAccessClientLevels:
-                          !!currentAccess.canAccessClientLevels,
+                      canAccessMembers: !!currentAccess.canAccessMembers,
                       canAccessFinance: !!currentAccess.canAccessFinance,
                       canAccessSettings: !!currentAccess.canAccessSettings,
                   }
@@ -289,7 +276,6 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                   })
                 : currentPerms;
 
-            // ✅ Persistir permissões sem depender de unique composto no schema
             if (patchPermissions) {
                 if (currentAccess?.id) {
                     await tx.adminAccess.update({
@@ -301,14 +287,12 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                         data: {
                             companyId: session.companyId,
                             userId: targetUserId,
-                            unitId: null,
                             ...nextPerms,
-                        } as any,
+                        },
                     });
                 }
             }
 
-            // Atualiza status do usuário (ativar/desativar)
             if (patchIsActive !== undefined) {
                 await tx.user.update({
                     where: { id: targetUserId },

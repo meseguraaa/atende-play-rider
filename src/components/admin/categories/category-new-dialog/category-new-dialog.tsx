@@ -51,18 +51,14 @@ export function CategoryNewDialog() {
     const [isPending, setIsPending] = useState(false);
 
     const [name, setName] = useState('');
-    const [showInServices, setShowInServices] = useState(true);
     const [showInProducts, setShowInProducts] = useState(false);
     const [showInFaq, setShowInFaq] = useState(false);
 
     const busy = isPending;
-    const requiredOk =
-        name.trim().length > 0 &&
-        (showInServices || showInProducts || showInFaq);
+    const requiredOk = name.trim().length > 0 && (showInProducts || showInFaq);
 
     function resetForm() {
         setName('');
-        setShowInServices(true);
         setShowInProducts(false);
         setShowInFaq(false);
     }
@@ -76,13 +72,6 @@ export function CategoryNewDialog() {
             return;
         }
 
-        if (!showInServices && !showInProducts && !showInFaq) {
-            toast.error(
-                'Marque pelo menos uma opção: Serviços, Produtos e/ou Tirar dúvidas.'
-            );
-            return;
-        }
-
         setIsPending(true);
 
         try {
@@ -91,7 +80,6 @@ export function CategoryNewDialog() {
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify({
                     name: name.trim(),
-                    showInServices,
                     showInProducts,
                     showInFaq,
                 }),
@@ -175,19 +163,6 @@ export function CategoryNewDialog() {
                                 <input
                                     type="checkbox"
                                     className="h-4 w-4 rounded border-border-primary"
-                                    checked={showInServices}
-                                    onChange={(e) =>
-                                        setShowInServices(e.target.checked)
-                                    }
-                                    disabled={busy}
-                                />
-                                <span>Serviços</span>
-                            </label>
-
-                            <label className="flex items-center gap-2 text-paragraph-small text-content-primary">
-                                <input
-                                    type="checkbox"
-                                    className="h-4 w-4 rounded border-border-primary"
                                     checked={showInProducts}
                                     onChange={(e) =>
                                         setShowInProducts(e.target.checked)
@@ -210,11 +185,10 @@ export function CategoryNewDialog() {
                                 <span>Tirar dúvidas</span>
                             </label>
                         </div>
-
-                        {!showInServices && !showInProducts && !showInFaq ? (
+                        {!showInProducts && !showInFaq ? (
                             <p className="text-xs text-red-500">
-                                Marque pelo menos uma opção: Serviços, Produtos
-                                e/ou Tirar dúvidas.
+                                Marque pelo menos uma opção: Produtos e/ou Tirar
+                                dúvidas.
                             </p>
                         ) : null}
                     </div>

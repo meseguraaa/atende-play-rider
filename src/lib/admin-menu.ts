@@ -68,8 +68,8 @@ export const ADMIN_MENU: AdminMenuItem[] = [
         enabled: isEnabled('partners'),
     },
     {
-        href: '/admin/clients',
-        label: 'Clientes',
+        href: '/admin/members',
+        label: 'Membros',
         menuKey: 'clients',
         enabled: isEnabled('clients'),
     },
@@ -78,12 +78,6 @@ export const ADMIN_MENU: AdminMenuItem[] = [
         label: 'Comunicação',
         menuKey: 'communication',
         enabled: isEnabled('communication'),
-    },
-    {
-        href: '/admin/client-levels',
-        label: 'Nível de Cliente',
-        menuKey: 'clientLevels',
-        enabled: isEnabled('clientLevels'),
     },
     {
         href: '/admin/review-tags',

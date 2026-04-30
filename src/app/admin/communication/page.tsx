@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
-import { CustomerLevel } from '@prisma/client';
 
 import { requireAdminForModule } from '@/lib/admin-permissions';
 import { prisma } from '@/lib/prisma';
@@ -9,7 +8,6 @@ import { prisma } from '@/lib/prisma';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SendCampaignCard } from '@/components/admin/communication/send-campaign-card/send-campaign-card';
-import { BirthdayMessageCard } from '@/components/admin/communication/birthday-message-card/birthday-message-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,13 +17,6 @@ export const metadata: Metadata = {
 
 const UNIT_COOKIE_NAME = 'admin_unit_context';
 const UNIT_ALL_VALUE = 'all';
-
-const LEVEL_RANK: Record<CustomerLevel, number> = {
-    BRONZE: 1,
-    PRATA: 2,
-    OURO: 3,
-    DIAMANTE: 4,
-};
 
 type LevelFilter = 'all' | CustomerLevel;
 type ClientStatusFilter = 'active' | 'inactive' | 'all';
@@ -414,67 +405,17 @@ export default async function AdminCommunicationPage({
             },
         });
 
-        const levelByUserId = new Map<string, CustomerLevel>();
-
-        if (selectedUnit !== UNIT_ALL_VALUE) {
-            for (const st of levelStates) {
-                levelByUserId.set(st.userId, st.levelCurrent);
-            }
-        } else {
-            const levelsPerUser = new Map<string, CustomerLevel[]>();
-
-            for (const st of levelStates) {
-                const arr = levelsPerUser.get(st.userId) ?? [];
-                arr.push(st.levelCurrent);
-                levelsPerUser.set(st.userId, arr);
-            }
-
-            for (const [userId, levels] of levelsPerUser.entries()) {
-                levelByUserId.set(userId, pickHighestLevel(levels));
-            }
-        }
-
-        const appointments = await prisma.appointment.findMany({
-            where: {
-                companyId,
-                clientId: { in: candidateIds },
-                ...(selectedUnit !== UNIT_ALL_VALUE
-                    ? { unitId: selectedUnit }
-                    : {}),
-            },
-            select: {
-                clientId: true,
-                status: true,
-                scheduleAt: true,
-                servicePriceAtTheTime: true,
-                clientPlanId: true,
-            },
-        });
-
-        const clientPlans = await prisma.clientPlan.findMany({
-            where: {
-                companyId,
-                clientId: { in: candidateIds },
-            },
-            select: {
-                clientId: true,
-                status: true,
-                expiresAt: true,
-                planPriceSnapshot: true,
-            },
-        });
-
         const completedOrders = await prisma.order.findMany({
             where: {
                 companyId,
-                clientId: { in: candidateIds },
+                memberId: { in: candidateIds },
                 status: 'COMPLETED',
                 ...(selectedUnit !== UNIT_ALL_VALUE
                     ? { unitId: selectedUnit }
                     : {}),
             },
             select: {
-                clientId: true,
+                memberId: true,
                 totalAmount: true,
             },
         });
@@ -489,17 +430,6 @@ export default async function AdminCommunicationPage({
             }[]
         >();
 
-        for (const apt of appointments) {
-            const arr = appointmentsByClientId.get(apt.clientId) ?? [];
-            arr.push({
-                status: apt.status,
-                scheduleAt: apt.scheduleAt,
-                servicePriceAtTheTime: apt.servicePriceAtTheTime,
-                clientPlanId: apt.clientPlanId ?? null,
-            });
-            appointmentsByClientId.set(apt.clientId, arr);
-        }
-
         const plansByClientId = new Map<
             string,
             {
@@ -509,21 +439,11 @@ export default async function AdminCommunicationPage({
             }[]
         >();
 
-        for (const cp of clientPlans) {
-            const arr = plansByClientId.get(cp.clientId) ?? [];
-            arr.push({
-                status: cp.status,
-                expiresAt: cp.expiresAt,
-                planPriceSnapshot: cp.planPriceSnapshot,
-            });
-            plansByClientId.set(cp.clientId, arr);
-        }
-
-        const ordersByClientId = new Map<string, number>();
+        const ordersByMemberId = new Map<string, number>();
         for (const order of completedOrders) {
-            const current = ordersByClientId.get(order.clientId ?? '') ?? 0;
-            ordersByClientId.set(
-                order.clientId ?? '',
+            const current = ordersByMemberId.get(order.memberId ?? '') ?? 0;
+            ordersByMemberId.set(
+                order.memberId ?? '',
                 current + Number(order.totalAmount ?? 0)
             );
         }
@@ -572,7 +492,7 @@ export default async function AdminCommunicationPage({
                 return sum + Number(cp.planPriceSnapshot ?? 0);
             }, 0);
 
-            const totalFromOrders = ordersByClientId.get(user.id) ?? 0;
+            const totalFromOrders = ordersByMemberId.get(user.id) ?? 0;
 
             const totalSpent =
                 totalFromAppointments + totalFromPlans + totalFromOrders;
@@ -649,10 +569,6 @@ export default async function AdminCommunicationPage({
                     </p>
                 </div>
             </section>
-
-            <BirthdayMessageCard
-                enabled={Boolean(settings?.birthdayMessageEnabled)}
-            />
 
             <FiltersForm
                 level={level}

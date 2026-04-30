@@ -25,7 +25,6 @@ export type RideStatus = 'DRAFT' | 'PUBLISHED' | 'CANCELED' | 'FINISHED';
 
 export type AdminRideRowItem = {
     id: string;
-    unitId: string | null;
     title: string;
     destination: string;
     description: string | null;

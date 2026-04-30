@@ -16,7 +16,7 @@ const interTight = Inter({
 });
 
 export const metadata: Metadata = {
-    title: 'AtendePlay',
+    title: 'AtendePlay - Rider',
     description:
         'Aqui você pode ver todos os cliente e serviços agendados para hoje',
 };
