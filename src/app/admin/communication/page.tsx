@@ -1,13 +1,12 @@
+// src/app/admin/communication/page.tsx
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { cookies } from 'next/headers';
 
 import { requireAdminForModule } from '@/lib/admin-permissions';
 import { prisma } from '@/lib/prisma';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { SendCampaignCard } from '@/components/admin/communication/send-campaign-card/send-campaign-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,131 +14,17 @@ export const metadata: Metadata = {
     title: 'Admin | Comunicação',
 };
 
-const UNIT_COOKIE_NAME = 'admin_unit_context';
-const UNIT_ALL_VALUE = 'all';
-
-type LevelFilter = 'all' | CustomerLevel;
-type ClientStatusFilter = 'active' | 'inactive' | 'all';
-type PlanFilter = 'all' | 'with_active_plan' | 'without_active_plan';
-type LastVisitFilter = 'all' | 'lt_30' | 'gt_30' | 'gt_60' | 'never';
-type FrequencyFilter =
-    | 'all'
-    | 'very_frequent'
-    | 'recurring'
-    | 'sporadic'
-    | 'no_history';
+type MemberStatusFilter = 'active' | 'inactive' | 'all';
 
 function getSingleParam(v: string | string[] | undefined): string | undefined {
     if (v == null) return undefined;
     return Array.isArray(v) ? v[0] : v;
 }
 
-function normalizeLevel(v: string | undefined): LevelFilter {
-    if (v === 'BRONZE') return 'BRONZE';
-    if (v === 'PRATA') return 'PRATA';
-    if (v === 'OURO') return 'OURO';
-    if (v === 'DIAMANTE') return 'DIAMANTE';
-    return 'all';
-}
-
-function normalizeClientStatus(v: string | undefined): ClientStatusFilter {
+function normalizeStatus(v: string | undefined): MemberStatusFilter {
     if (v === 'inactive') return 'inactive';
     if (v === 'all') return 'all';
     return 'active';
-}
-
-function normalizePlanFilter(v: string | undefined): PlanFilter {
-    if (v === 'with_active_plan') return 'with_active_plan';
-    if (v === 'without_active_plan') return 'without_active_plan';
-    return 'all';
-}
-
-function normalizeLastVisit(v: string | undefined): LastVisitFilter {
-    if (v === 'lt_30') return 'lt_30';
-    if (v === 'gt_30') return 'gt_30';
-    if (v === 'gt_60') return 'gt_60';
-    if (v === 'never') return 'never';
-    return 'all';
-}
-
-function normalizeFrequency(v: string | undefined): FrequencyFilter {
-    if (v === 'very_frequent') return 'very_frequent';
-    if (v === 'recurring') return 'recurring';
-    if (v === 'sporadic') return 'sporadic';
-    if (v === 'no_history') return 'no_history';
-    return 'all';
-}
-
-function normalizeMinSpent(v: string | undefined): number {
-    const n = Number(String(v ?? '').replace(',', '.'));
-    if (!Number.isFinite(n) || n < 0) return 0;
-    return n;
-}
-
-function pickHighestLevel(levels: CustomerLevel[]): CustomerLevel {
-    let best: CustomerLevel = 'BRONZE';
-    for (const l of levels) {
-        if (LEVEL_RANK[l] > LEVEL_RANK[best]) best = l;
-    }
-    return best;
-}
-
-function digitsOnly(value: string | null | undefined) {
-    return String(value ?? '').replace(/\D/g, '');
-}
-
-function hasValidWhatsappPhone(value: string | null | undefined) {
-    const digits = digitsOnly(value);
-    return digits.length >= 10;
-}
-
-function buildFrequencyKey(doneDates: Date[]): Exclude<FrequencyFilter, 'all'> {
-    if (doneDates.length === 0) return 'no_history';
-    if (doneDates.length === 1) return 'sporadic';
-
-    const sorted = [...doneDates].sort((a, b) => a.getTime() - b.getTime());
-
-    const diffs: number[] = [];
-    for (let i = 1; i < sorted.length; i++) {
-        const diffMs = sorted[i].getTime() - sorted[i - 1].getTime();
-        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-        diffs.push(diffDays);
-    }
-
-    if (diffs.length === 0) return 'sporadic';
-
-    const avgDays = diffs.reduce((acc, d) => acc + d, 0) / diffs.length;
-
-    if (avgDays <= 10) return 'very_frequent';
-    if (avgDays <= 25) return 'recurring';
-    return 'sporadic';
-}
-
-function matchesLastVisitFilter(
-    lastDoneDate: Date | null,
-    filter: LastVisitFilter,
-    now: Date
-) {
-    if (filter === 'all') return true;
-    if (filter === 'never') return !lastDoneDate;
-    if (!lastDoneDate) return false;
-
-    const diffMs = now.getTime() - lastDoneDate.getTime();
-    const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-    if (filter === 'lt_30') return diffDays < 30;
-    if (filter === 'gt_30') return diffDays > 30;
-    if (filter === 'gt_60') return diffDays > 60;
-
-    return true;
-}
-
-function matchesFrequencyFilter(
-    frequency: Exclude<FrequencyFilter, 'all'>,
-    filter: FrequencyFilter
-) {
-    if (filter === 'all') return true;
-    return frequency === filter;
 }
 
 async function requireCompanyIdFromContext(session: any) {
@@ -152,138 +37,45 @@ async function requireCompanyIdFromContext(session: any) {
     return companyId;
 }
 
-function FiltersForm({
-    level,
-    status,
-    plan,
-    lastVisit,
-    frequency,
-    minSpent,
-}: {
-    level: LevelFilter;
-    status: ClientStatusFilter;
-    plan: PlanFilter;
-    lastVisit: LastVisitFilter;
-    frequency: FrequencyFilter;
-    minSpent: number;
-}) {
+function FiltersForm({ q, status }: { q: string; status: MemberStatusFilter }) {
     return (
-        <section className="rounded-xl border border-border-primary bg-background-tertiary p-4 space-y-4">
-            <form method="GET" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                    <div>
-                        <label className="text-[11px] text-content-secondary">
-                            Nível do cliente
-                        </label>
-                        <select
-                            name="level"
-                            defaultValue={level}
-                            className="h-10 w-full rounded-md border border-border-primary bg-background-secondary px-3 text-sm text-content-primary"
-                        >
-                            <option value="all">Todos</option>
-                            <option value="BRONZE">Bronze</option>
-                            <option value="PRATA">Prata</option>
-                            <option value="OURO">Ouro</option>
-                            <option value="DIAMANTE">Diamante</option>
-                        </select>
-                    </div>
+        <section className="rounded-xl border border-border-primary bg-background-tertiary p-4">
+            <form
+                method="GET"
+                className="flex flex-col gap-3 md:flex-row md:items-end"
+            >
+                <div className="flex-1">
+                    <label className="text-[11px] text-content-secondary">
+                        Buscar membro
+                    </label>
+                    <Input
+                        name="q"
+                        defaultValue={q}
+                        placeholder="Nome, e-mail ou telefone"
+                        className="h-10 bg-background-secondary border-border-primary"
+                    />
+                </div>
 
-                    <div>
-                        <label className="text-[11px] text-content-secondary">
-                            Status
-                        </label>
-                        <select
-                            name="status"
-                            defaultValue={status}
-                            className="h-10 w-full rounded-md border border-border-primary bg-background-secondary px-3 text-sm text-content-primary"
-                        >
-                            <option value="active">Ativos</option>
-                            <option value="inactive">Inativos</option>
-                            <option value="all">Ativos/Inativos</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="text-[11px] text-content-secondary">
-                            Planos
-                        </label>
-                        <select
-                            name="plan"
-                            defaultValue={plan}
-                            className="h-10 w-full rounded-md border border-border-primary bg-background-secondary px-3 text-sm text-content-primary"
-                        >
-                            <option value="all">Todos</option>
-                            <option value="with_active_plan">
-                                Com plano ativo
-                            </option>
-                            <option value="without_active_plan">
-                                Sem plano ativo
-                            </option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="text-[11px] text-content-secondary">
-                            Último atendimento
-                        </label>
-                        <select
-                            name="lastVisit"
-                            defaultValue={lastVisit}
-                            className="h-10 w-full rounded-md border border-border-primary bg-background-secondary px-3 text-sm text-content-primary"
-                        >
-                            <option value="all">Todos</option>
-                            <option value="lt_30">
-                                Atendidos há menos de 30 dias
-                            </option>
-                            <option value="gt_30">
-                                Atendidos há mais de 30 dias
-                            </option>
-                            <option value="gt_60">
-                                Atendidos há mais de 60 dias
-                            </option>
-                            <option value="never">Nunca atendidos</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="text-[11px] text-content-secondary">
-                            Frequência
-                        </label>
-                        <select
-                            name="frequency"
-                            defaultValue={frequency}
-                            className="h-10 w-full rounded-md border border-border-primary bg-background-secondary px-3 text-sm text-content-primary"
-                        >
-                            <option value="all">Todas</option>
-                            <option value="very_frequent">
-                                Muito frequente
-                            </option>
-                            <option value="recurring">Recorrente</option>
-                            <option value="sporadic">Esporádico</option>
-                            <option value="no_history">Sem histórico</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="text-[11px] text-content-secondary">
-                            Gastaram mais de (R$)
-                        </label>
-                        <Input
-                            name="minSpent"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            defaultValue={minSpent > 0 ? String(minSpent) : ''}
-                            placeholder="Ex: 300"
-                            className="h-10 bg-background-secondary border-border-primary"
-                        />
-                    </div>
+                <div className="w-full md:w-52">
+                    <label className="text-[11px] text-content-secondary">
+                        Status
+                    </label>
+                    <select
+                        name="status"
+                        defaultValue={status}
+                        className="h-10 w-full rounded-md border border-border-primary bg-background-secondary px-3 text-sm text-content-primary"
+                    >
+                        <option value="active">Ativos</option>
+                        <option value="inactive">Inativos</option>
+                        <option value="all">Ativos/Inativos</option>
+                    </select>
                 </div>
 
                 <div className="flex gap-2">
                     <Button type="submit" variant="edit2" size="sm">
-                        Aplicar filtros
+                        Aplicar
                     </Button>
+
                     <Button asChild variant="outline" size="sm">
                         <Link href="/admin/communication">Limpar</Link>
                     </Button>
@@ -303,47 +95,19 @@ export default async function AdminCommunicationPage({
 
     const resolvedSearchParams = await searchParams;
 
-    const level = normalizeLevel(getSingleParam(resolvedSearchParams.level));
-    const status = normalizeClientStatus(
-        getSingleParam(resolvedSearchParams.status)
-    );
-    const plan = normalizePlanFilter(getSingleParam(resolvedSearchParams.plan));
-    const lastVisit = normalizeLastVisit(
-        getSingleParam(resolvedSearchParams.lastVisit)
-    );
-    const frequency = normalizeFrequency(
-        getSingleParam(resolvedSearchParams.frequency)
-    );
-    const minSpent = normalizeMinSpent(
-        getSingleParam(resolvedSearchParams.minSpent)
-    );
+    const q = String(getSingleParam(resolvedSearchParams.q) ?? '').trim();
+    const status = normalizeStatus(getSingleParam(resolvedSearchParams.status));
 
     const settings = await prisma.companyCommunicationSettings.findUnique({
         where: { companyId },
         select: {
-            whatsappCredits: true,
-            birthdayMessageEnabled: true,
-            birthdayMessageContent: true,
-            freeWhatsappUsedAt: true,
+            pushEnabled: true,
         },
     });
 
-    const cookieStore = await cookies();
-    const selectedUnit =
-        cookieStore.get(UNIT_COOKIE_NAME)?.value ?? UNIT_ALL_VALUE;
-
-    const now = new Date();
-    const startOfMonth = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
-    );
-
-    const freeAvailable =
-        !settings?.freeWhatsappUsedAt ||
-        settings.freeWhatsappUsedAt < startOfMonth;
-
-    const membershipWhere: any = {
+    const membershipWhere = {
         companyId,
-        role: 'CLIENT',
+        role: 'CLIENT' as const,
         ...(status === 'active'
             ? { isActive: true }
             : status === 'inactive'
@@ -351,251 +115,158 @@ export default async function AdminCommunicationPage({
               : {}),
     };
 
-    const whereUser: any = {
+    const userWhere = {
         companyMemberships: {
             some: membershipWhere,
         },
+        ...(q
+            ? {
+                  OR: [
+                      { name: { contains: q, mode: 'insensitive' as const } },
+                      { email: { contains: q, mode: 'insensitive' as const } },
+                      { phone: { contains: q, mode: 'insensitive' as const } },
+                  ],
+              }
+            : {}),
     };
 
-    const candidateUsers = await prisma.user.findMany({
-        where: whereUser,
-        orderBy: { name: 'asc' },
-        select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-        },
-    });
-
-    const candidateIds = candidateUsers.map((u) => u.id);
-
-    let eligibleCount = 0;
-    let eligibleWithPhoneCount = 0;
-
-    if (candidateIds.length > 0) {
-        const memberships = await prisma.companyMember.findMany({
-            where: {
-                companyId,
-                userId: { in: candidateIds },
-                role: 'CLIENT',
-            },
-            select: {
-                userId: true,
-                isActive: true,
-            },
-        });
-
-        const isActiveByUserId = new Map<string, boolean>();
-        for (const m of memberships) {
-            isActiveByUserId.set(m.userId, m.isActive);
-        }
-
-        const levelStates = await prisma.customerLevelState.findMany({
-            where: {
-                companyId,
-                userId: { in: candidateIds },
-                ...(selectedUnit !== UNIT_ALL_VALUE
-                    ? { unitId: selectedUnit }
-                    : {}),
-            },
-            select: {
-                userId: true,
-                levelCurrent: true,
-            },
-        });
-
-        const completedOrders = await prisma.order.findMany({
-            where: {
-                companyId,
-                memberId: { in: candidateIds },
-                status: 'COMPLETED',
-                ...(selectedUnit !== UNIT_ALL_VALUE
-                    ? { unitId: selectedUnit }
-                    : {}),
-            },
-            select: {
-                memberId: true,
-                totalAmount: true,
-            },
-        });
-
-        const appointmentsByClientId = new Map<
-            string,
-            {
-                status: string;
-                scheduleAt: Date;
-                servicePriceAtTheTime: any;
-                clientPlanId: string | null;
-            }[]
-        >();
-
-        const plansByClientId = new Map<
-            string,
-            {
-                status: string;
-                expiresAt: Date;
-                planPriceSnapshot: any;
-            }[]
-        >();
-
-        const ordersByMemberId = new Map<string, number>();
-        for (const order of completedOrders) {
-            const current = ordersByMemberId.get(order.memberId ?? '') ?? 0;
-            ordersByMemberId.set(
-                order.memberId ?? '',
-                current + Number(order.totalAmount ?? 0)
-            );
-        }
-
-        const filteredUsers = candidateUsers.filter((user) => {
-            const userLevel = levelByUserId.get(user.id) ?? 'BRONZE';
-            if (level !== 'all' && userLevel !== level) return false;
-
-            const userPlans = plansByClientId.get(user.id) ?? [];
-            const hasActivePlan = userPlans.some(
-                (cp) => cp.status === 'ACTIVE' && cp.expiresAt >= now
-            );
-
-            if (plan === 'with_active_plan' && !hasActivePlan) return false;
-            if (plan === 'without_active_plan' && hasActivePlan) return false;
-
-            const userAppointments = appointmentsByClientId.get(user.id) ?? [];
-            const doneAppointments = userAppointments.filter(
-                (apt) => apt.status === 'DONE'
-            );
-
-            const doneDates = doneAppointments.map((apt) => apt.scheduleAt);
-            const lastDoneDate =
-                doneDates.length > 0
-                    ? new Date(Math.max(...doneDates.map((d) => d.getTime())))
-                    : null;
-
-            if (!matchesLastVisitFilter(lastDoneDate, lastVisit, now)) {
-                return false;
-            }
-
-            const frequencyKey = buildFrequencyKey(doneDates);
-            if (!matchesFrequencyFilter(frequencyKey, frequency)) {
-                return false;
-            }
-
-            const totalFromAppointments = doneAppointments.reduce(
-                (sum, apt) => {
-                    if (apt.clientPlanId) return sum;
-                    return sum + Number(apt.servicePriceAtTheTime ?? 0);
+    const [eligibleMembers, totalMembers, activePushDevices] =
+        await Promise.all([
+            prisma.user.findMany({
+                where: userWhere,
+                orderBy: { name: 'asc' },
+                select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    phone: true,
+                    pushDevices: {
+                        where: { isActive: true },
+                        select: { id: true },
+                        take: 1,
+                    },
                 },
-                0
-            );
+            }),
 
-            const totalFromPlans = userPlans.reduce((sum, cp) => {
-                return sum + Number(cp.planPriceSnapshot ?? 0);
-            }, 0);
+            prisma.companyMember.count({
+                where: {
+                    companyId,
+                    role: 'CLIENT',
+                },
+            }),
 
-            const totalFromOrders = ordersByMemberId.get(user.id) ?? 0;
+            prisma.pushDevice.count({
+                where: {
+                    isActive: true,
+                    user: {
+                        companyMemberships: {
+                            some: {
+                                companyId,
+                                role: 'CLIENT',
+                            },
+                        },
+                    },
+                },
+            }),
+        ]);
 
-            const totalSpent =
-                totalFromAppointments + totalFromPlans + totalFromOrders;
+    const eligibleCount = eligibleMembers.length;
+    const eligibleWithPushCount = eligibleMembers.filter(
+        (member) => member.pushDevices.length > 0
+    ).length;
 
-            if (minSpent > 0 && totalSpent < minSpent) return false;
-
-            return true;
-        });
-
-        eligibleCount = filteredUsers.length;
-        eligibleWithPhoneCount = filteredUsers.filter((user) =>
-            hasValidWhatsappPhone(user.phone)
-        ).length;
-    }
-
-    const hasAudience = eligibleWithPhoneCount > 0;
-    const balanceNow = Number(settings?.whatsappCredits ?? 0);
-
-    // 1 por campanha
-    const estimatedConsumptionLabel = !hasAudience
-        ? 'Nenhum envio elegível'
-        : freeAvailable
-          ? '1 grátis'
-          : '1 crédito';
+    const pushEnabled = settings?.pushEnabled ?? true;
+    const hasAudience = pushEnabled && eligibleWithPushCount > 0;
 
     return (
         <div className="space-y-6 max-w-7xl mx-auto">
             <header className="space-y-1">
                 <h1 className="text-title text-content-primary">Comunicação</h1>
                 <p className="text-paragraph-medium text-content-secondary">
-                    Segmente seus clientes e prepare campanhas de envio manual
-                    via WhatsApp.
+                    Envie comunicados via push para os membros do aplicativo.
                 </p>
             </header>
 
             <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="rounded-xl border border-border-primary bg-background-tertiary p-4 space-y-2">
                     <p className="text-label-small text-content-secondary">
-                        WhatsApp
-                    </p>
-                    <p className="text-lg font-semibold text-content-primary">
-                        Ativo
-                    </p>
-                    <p className="text-xs text-content-secondary">
-                        1 mensagem grátis por mês disponível para a empresa
-                    </p>
-                </div>
-
-                <div className="rounded-xl border border-border-primary bg-background-tertiary p-4 space-y-2">
-                    <p className="text-label-small text-content-secondary">
-                        Créditos disponíveis
-                    </p>
-                    <p className="text-lg font-semibold text-content-primary">
-                        {balanceNow}
-                    </p>
-                    <p className="text-xs text-content-secondary">
-                        Créditos extras prontos para campanhas
-                    </p>
-                </div>
-
-                <div className="rounded-xl border border-border-primary bg-background-tertiary p-4 space-y-2">
-                    <p className="text-label-small text-content-secondary">
-                        Mensagem grátis do mês
+                        Push
                     </p>
                     <p
                         className={`text-lg font-semibold ${
-                            freeAvailable ? 'text-green-600' : 'text-red-600'
+                            pushEnabled ? 'text-green-600' : 'text-red-600'
                         }`}
                     >
-                        {freeAvailable ? 'Disponível' : 'Já utilizada'}
+                        {pushEnabled ? 'Ativo' : 'Inativo'}
                     </p>
                     <p className="text-xs text-content-secondary">
-                        Renovação automática mensal
+                        Canal de comunicação com o app dos membros.
+                    </p>
+                </div>
+
+                <div className="rounded-xl border border-border-primary bg-background-tertiary p-4 space-y-2">
+                    <p className="text-label-small text-content-secondary">
+                        Membros cadastrados
+                    </p>
+                    <p className="text-lg font-semibold text-content-primary">
+                        {totalMembers}
+                    </p>
+                    <p className="text-xs text-content-secondary">
+                        Total de membros vinculados à empresa.
+                    </p>
+                </div>
+
+                <div className="rounded-xl border border-border-primary bg-background-tertiary p-4 space-y-2">
+                    <p className="text-label-small text-content-secondary">
+                        Dispositivos push ativos
+                    </p>
+                    <p className="text-lg font-semibold text-content-primary">
+                        {activePushDevices}
+                    </p>
+                    <p className="text-xs text-content-secondary">
+                        Dispositivos aptos a receber notificações.
                     </p>
                 </div>
             </section>
 
-            <FiltersForm
-                level={level}
-                status={status}
-                plan={plan}
-                lastVisit={lastVisit}
-                frequency={frequency}
-                minSpent={minSpent}
-            />
+            <FiltersForm q={q} status={status} />
 
-            <SendCampaignCard
-                eligibleCount={eligibleCount}
-                eligibleWithPhoneCount={eligibleWithPhoneCount}
-                estimatedConsumptionLabel={estimatedConsumptionLabel}
-                balanceNow={balanceNow}
-                freeAvailable={freeAvailable}
-                filters={{
-                    q: '',
-                    level,
-                    status,
-                    plan,
-                    lastVisit,
-                    frequency,
-                    minSpent,
-                    unitId: selectedUnit,
-                }}
-            />
+            <section className="rounded-xl border border-border-primary bg-background-tertiary p-5 space-y-4">
+                <div className="space-y-1">
+                    <h2 className="text-lg font-semibold text-content-primary">
+                        Envio manual por push
+                    </h2>
+                    <p className="text-sm text-content-secondary">
+                        Público filtrado: {eligibleCount} membro
+                        {eligibleCount === 1 ? '' : 's'} encontrado
+                        {eligibleCount === 1 ? '' : 's'}. Com push ativo:{' '}
+                        {eligibleWithPushCount}.
+                    </p>
+                </div>
+
+                {!pushEnabled ? (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                        O envio por push está desativado nas configurações de
+                        comunicação da empresa.
+                    </div>
+                ) : !hasAudience ? (
+                    <div className="rounded-lg border border-border-primary bg-background-secondary p-3 text-sm text-content-secondary">
+                        Nenhum membro elegível com dispositivo push ativo para
+                        os filtros atuais.
+                    </div>
+                ) : (
+                    <div className="rounded-lg border border-border-primary bg-background-secondary p-4 space-y-3">
+                        <p className="text-sm text-content-primary">
+                            A base para envio está pronta. O próximo ajuste deve
+                            conectar este card à ação/API de disparo push.
+                        </p>
+
+                        <Button disabled variant="edit2">
+                            Enviar push
+                        </Button>
+                    </div>
+                )}
+            </section>
         </div>
     );
 }
