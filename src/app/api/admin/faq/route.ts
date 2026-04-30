@@ -76,7 +76,6 @@ export async function GET() {
                 id: true,
                 name: true,
                 isActive: true,
-                showInServices: true,
                 showInProducts: true,
                 showInFaq: true,
             },
