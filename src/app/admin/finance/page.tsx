@@ -6,9 +6,8 @@ import { prisma } from '@/lib/prisma';
 import { requireAdminForModule } from '@/lib/admin-permissions';
 import AdminFinanceClient, {
     type AdminFinanceSummaryUI,
-    type ProfessionalMonthlyEarningsUI,
     type ExpenseRowUI,
-} from './admin-finance-client';
+} from './admin-finance-members';
 
 import {
     addMonths,
@@ -30,45 +29,38 @@ export const metadata: Metadata = {
 type AdminFinancePageProps = {
     searchParams: Promise<{
         month?: string;
-        unit?: string;
     }>;
 };
 
 function parseMonthParam(month?: string): Date {
     if (!month) return startOfMonth(new Date());
+
     const parsed = parse(month, 'yyyy-MM', new Date());
+
     if (!isValid(parsed)) return startOfMonth(new Date());
+
     return startOfMonth(parsed);
 }
 
-function capitalizeFirst(v: string) {
-    if (!v) return v;
-    return v.charAt(0).toUpperCase() + v.slice(1);
-}
-
-function buildFinanceRedirect(params: { month?: string; unit?: string }) {
-    const sp = new URLSearchParams();
-
-    if (params.month) sp.set('month', params.month);
-    if (params.unit) sp.set('unit', params.unit);
-
-    const qs = sp.toString();
-    return qs ? `/admin/finance?${qs}` : '/admin/finance';
+function capitalizeFirst(value: string) {
+    if (!value) return value;
+    return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function clampDayToMonth(day: number, monthDate: Date): number {
     const last = endOfMonth(monthDate).getDate();
+
     if (day <= 1) return 1;
     if (day >= last) return last;
+
     return day;
 }
 
 async function ensureRecurringExpensesForMonth(args: {
     companyId: string;
-    unitId: string;
     monthDate: Date;
 }) {
-    const { companyId, unitId, monthDate } = args;
+    const { companyId, monthDate } = args;
 
     const monthStart = startOfMonth(monthDate);
     const monthEnd = endOfMonth(monthDate);
@@ -80,12 +72,13 @@ async function ensureRecurringExpensesForMonth(args: {
     const prevRecurring = await prisma.expense.findMany({
         where: {
             companyId,
-            unitId,
             isRecurring: true,
-            dueDate: { gte: prevStart, lte: prevEnd },
+            dueDate: {
+                gte: prevStart,
+                lte: prevEnd,
+            },
         },
         select: {
-            id: true,
             description: true,
             category: true,
             amount: true,
@@ -94,14 +87,16 @@ async function ensureRecurringExpensesForMonth(args: {
         orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
     });
 
-    if (prevRecurring.length === 0) return;
+    if (!prevRecurring.length) return;
 
     const currentRecurring = await prisma.expense.findMany({
         where: {
             companyId,
-            unitId,
             isRecurring: true,
-            dueDate: { gte: monthStart, lte: monthEnd },
+            dueDate: {
+                gte: monthStart,
+                lte: monthEnd,
+            },
         },
         select: {
             description: true,
@@ -112,24 +107,24 @@ async function ensureRecurringExpensesForMonth(args: {
     });
 
     const existingKey = new Set(
-        currentRecurring.map((e) => {
-            const day = e.dueDate.getDate();
-            return [
+        currentRecurring.map((expense) =>
+            [
                 companyId,
-                unitId,
-                'REC',
-                e.category,
-                e.description.trim().toLowerCase(),
-                Number(e.amount).toFixed(2),
-                String(day),
-            ].join('|');
-        })
+                expense.category,
+                expense.description.trim().toLowerCase(),
+                Number(expense.amount).toFixed(2),
+                String(expense.dueDate.getDate()),
+            ].join('|')
+        )
     );
 
     const toCreate = prevRecurring
-        .map((src) => {
-            const day = src.dueDate.getDate();
-            const clampedDay = clampDayToMonth(day, monthDate);
+        .map((source) => {
+            const clampedDay = clampDayToMonth(
+                source.dueDate.getDate(),
+                monthDate
+            );
+
             const dueDate = new Date(
                 monthDate.getFullYear(),
                 monthDate.getMonth(),
@@ -138,11 +133,9 @@ async function ensureRecurringExpensesForMonth(args: {
 
             const key = [
                 companyId,
-                unitId,
-                'REC',
-                src.category,
-                src.description.trim().toLowerCase(),
-                Number(src.amount).toFixed(2),
+                source.category,
+                source.description.trim().toLowerCase(),
+                Number(source.amount).toFixed(2),
                 String(clampedDay),
             ].join('|');
 
@@ -150,29 +143,22 @@ async function ensureRecurringExpensesForMonth(args: {
                 key,
                 data: {
                     companyId,
-                    unitId,
-                    description: src.description,
-                    category: src.category,
-                    amount: Number(src.amount).toFixed(2),
+                    description: source.description,
+                    category: source.category,
+                    amount: Number(source.amount).toFixed(2),
                     dueDate,
                     isRecurring: true,
                     isPaid: false,
                 },
             };
         })
-        .filter((x) => !existingKey.has(x.key));
+        .filter((item) => !existingKey.has(item.key));
 
-    if (toCreate.length === 0) return;
+    if (!toCreate.length) return;
 
     await prisma.expense.createMany({
-        data: toCreate.map((x) => x.data),
-        skipDuplicates: false,
+        data: toCreate.map((item) => item.data),
     });
-}
-
-function safeNumber(v: unknown): number {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : 0;
 }
 
 export default async function AdminFinancePage({
@@ -183,12 +169,7 @@ export default async function AdminFinancePage({
     const companyId = session.companyId;
     if (!companyId) redirect('/admin');
 
-    const userId = session.id;
-    if (!userId) redirect('/admin');
-
-    const canSeeAllUnits = !!(session as any)?.canSeeAllUnits;
-
-    const { month: monthParam, unit: unitParam } = await searchParams;
+    const { month: monthParam } = await searchParams;
 
     const referenceDate = parseMonthParam(monthParam);
     const monthStart = startOfMonth(referenceDate);
@@ -198,102 +179,15 @@ export default async function AdminFinancePage({
     const yearEnd = monthEnd;
 
     const monthQuery = format(referenceDate, 'yyyy-MM');
+
     const monthLabel = capitalizeFirst(
         format(referenceDate, "MMMM 'de' yyyy", { locale: ptBR })
     );
 
-    const units = canSeeAllUnits
-        ? await prisma.unit.findMany({
-              where: { companyId, isActive: true },
-              select: { id: true, name: true },
-              orderBy: { name: 'asc' },
-          })
-        : await (async () => {
-              const access = await prisma.adminUnitAccess.findMany({
-                  where: { companyId, userId },
-                  select: { unitId: true },
-              });
-
-              const unitIds = access.map((a) => a.unitId).filter(Boolean);
-
-              if (!unitIds.length) return [];
-
-              return prisma.unit.findMany({
-                  where: {
-                      companyId,
-                      isActive: true,
-                      id: { in: unitIds },
-                  },
-                  select: { id: true, name: true },
-                  orderBy: { name: 'asc' },
-              });
-          })();
-
-    const defaultUnitId = units.length > 0 ? units[0].id : null;
-
-    if (!defaultUnitId) {
-        const summary: AdminFinanceSummaryUI = {
-            netRevenueMonth: 'R$ 0,00',
-            servicesNetMonth: 'R$ 0,00',
-            productsNetMonth: 'R$ 0,00',
-            totalExpenses: 'R$ 0,00',
-            totalCardFees: 'R$ 0,00',
-            netIncome: 'R$ 0,00',
-            netIncomeIsPositive: true,
-            netIncomeYear: 'R$ 0,00',
-            netIncomeYearIsPositive: true,
-        };
-
-        return (
-            <AdminFinanceClient
-                scopeLabel="Nenhuma unidade disponível"
-                monthLabel={monthLabel}
-                monthQuery={monthQuery}
-                summary={summary}
-                professionalEarnings={[]}
-                expenses={[]}
-                newExpenseDisabled={true}
-            />
-        );
-    }
-
-    if (!unitParam || unitParam === 'all') {
-        redirect(
-            buildFinanceRedirect({ month: monthQuery, unit: defaultUnitId })
-        );
-    }
-
-    const activeUnitId: string = unitParam;
-
-    const inAllowedList = units.some((u) => u.id === activeUnitId);
-
-    if (!inAllowedList) {
-        redirect(
-            buildFinanceRedirect({ month: monthQuery, unit: defaultUnitId })
-        );
-    }
-
-    const ok = await prisma.unit.findFirst({
-        where: { id: activeUnitId, companyId, isActive: true },
-        select: { id: true },
-    });
-
-    if (!ok) {
-        redirect(
-            buildFinanceRedirect({ month: monthQuery, unit: defaultUnitId })
-        );
-    }
-
     await ensureRecurringExpensesForMonth({
         companyId,
-        unitId: activeUnitId,
         monthDate: monthStart,
     });
-
-    const scopeLabel =
-        units.find((u) => u.id === activeUnitId)?.name ?? 'unidade selecionada';
-
-    const newExpenseDisabled = !activeUnitId;
 
     const currencyFormatter = new Intl.NumberFormat('pt-BR', {
         style: 'currency',
@@ -303,9 +197,11 @@ export default async function AdminFinancePage({
     const expensesDb = await prisma.expense.findMany({
         where: {
             companyId,
-            unitId: activeUnitId,
-            dueDate: { gte: monthStart, lte: monthEnd },
-        } as any,
+            dueDate: {
+                gte: monthStart,
+                lte: monthEnd,
+            },
+        },
         orderBy: [{ dueDate: 'asc' }, { createdAt: 'asc' }],
         select: {
             id: true,
@@ -317,108 +213,52 @@ export default async function AdminFinancePage({
         },
     });
 
-    const expenses: ExpenseRowUI[] = expensesDb.map((e) => ({
-        id: e.id,
-        description: e.description,
-        dueDate: format(e.dueDate, 'dd/MM/yyyy', { locale: ptBR }),
-        amount: currencyFormatter.format(Number(e.amount)),
-        isRecurring: !!e.isRecurring,
-        statusLabel: e.isPaid ? 'Pago' : 'Em aberto',
-        statusTone: e.isPaid ? 'success' : 'warning',
+    const expenses: ExpenseRowUI[] = expensesDb.map((expense) => ({
+        id: expense.id,
+        description: expense.description,
+        dueDate: format(expense.dueDate, 'dd/MM/yyyy', { locale: ptBR }),
+        amount: currencyFormatter.format(Number(expense.amount)),
+        isRecurring: expense.isRecurring,
+        statusLabel: expense.isPaid ? 'Pago' : 'Em aberto',
+        statusTone: expense.isPaid ? 'success' : 'warning',
     }));
 
-    const totalExpensesNumber = expensesDb.reduce((sum, e) => {
-        if (!e.isPaid) return sum;
-        return sum + Number(e.amount);
+    const totalExpensesNumber = expensesDb.reduce((sum, expense) => {
+        return sum + Number(expense.amount);
     }, 0);
 
     const expensesYearDb = await prisma.expense.findMany({
         where: {
             companyId,
-            unitId: activeUnitId,
-            isPaid: true,
-            dueDate: { gte: yearStart, lte: yearEnd },
-        } as any,
+            dueDate: {
+                gte: yearStart,
+                lte: yearEnd,
+            },
+        },
         select: {
             amount: true,
         },
     });
 
-    const totalExpensesYearNumber = expensesYearDb.reduce((sum, e) => {
-        return sum + Number(e.amount);
+    const totalExpensesYearNumber = expensesYearDb.reduce((sum, expense) => {
+        return sum + Number(expense.amount);
     }, 0);
 
-    /*
-     * Financeiro temporário:
-     * Checkout/Appointment foi removido do tenant admin por enquanto.
-     * Quando o financeiro novo nascer em cima de Rides/Orders, ligamos aqui.
-     */
     const totalCardFeesNumber = 0;
     const totalReceivedNetMonth = 0;
     const totalReceivedNetYear = 0;
 
     const servicesCommissionMonthNumber = 0;
-    const servicesCommissionYearNumber = 0;
-
     const productsCommissionMonthNumber = 0;
-    const productsCommissionYearNumber = 0;
-
-    const servicesEarningsByProfessional = new Map<string, number>();
-    const productsEarningsByProfessional = new Map<string, number>();
-
-    const allProfessionalIds = new Set<string>([
-        ...Array.from(servicesEarningsByProfessional.keys()),
-        ...Array.from(productsEarningsByProfessional.keys()),
-    ]);
-
-    const professionalEarnings: ProfessionalMonthlyEarningsUI[] = Array.from(
-        allProfessionalIds
-    )
-        .map((pid) => {
-            const services = servicesEarningsByProfessional.get(pid) ?? 0;
-            const products = productsEarningsByProfessional.get(pid) ?? 0;
-            const total = services + products;
-
-            return {
-                professionalId: pid,
-                name: 'Profissional',
-                servicesEarnings: currencyFormatter.format(services),
-                productsEarnings: currencyFormatter.format(products),
-                total: currencyFormatter.format(total),
-            };
-        })
-        .sort((a, b) => {
-            const na = safeNumber(
-                a.total
-                    .replace(/[^\d,.-]/g, '')
-                    .replace('.', '')
-                    .replace(',', '.')
-            );
-            const nb = safeNumber(
-                b.total
-                    .replace(/[^\d,.-]/g, '')
-                    .replace('.', '')
-                    .replace(',', '.')
-            );
-            return nb - na;
-        });
-
-    const totalCommissionMonthNumber =
-        servicesCommissionMonthNumber + productsCommissionMonthNumber;
-
-    const totalCommissionYearNumber =
-        servicesCommissionYearNumber + productsCommissionYearNumber;
 
     const netRevenueMonthNumber =
-        totalReceivedNetMonth - totalCommissionMonthNumber;
+        totalReceivedNetMonth -
+        servicesCommissionMonthNumber -
+        productsCommissionMonthNumber;
 
-    const netRevenueYearNumber =
-        totalReceivedNetYear - totalCommissionYearNumber;
+    const netRevenueYearNumber = totalReceivedNetYear;
 
-    const servicesNetMonthNumber =
-        Math.max(0, totalReceivedNetMonth - totalCardFeesNumber) -
-        servicesCommissionMonthNumber;
-
+    const servicesNetMonthNumber = 0;
     const productsNetMonthNumber = 0;
 
     const netIncomeNumber = netRevenueMonthNumber - totalExpensesNumber;
@@ -438,13 +278,12 @@ export default async function AdminFinancePage({
 
     return (
         <AdminFinanceClient
-            scopeLabel={scopeLabel}
+            scopeLabel="Empresa"
             monthLabel={monthLabel}
             monthQuery={monthQuery}
             summary={summary}
-            professionalEarnings={professionalEarnings}
             expenses={expenses}
-            newExpenseDisabled={newExpenseDisabled}
+            newExpenseDisabled={false}
         />
     );
 }

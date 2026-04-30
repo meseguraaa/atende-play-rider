@@ -1,6 +1,8 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
+
 import { MonthPicker } from '@/components/month-picker';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,7 +14,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ExpenseDueDatePicker } from '@/components/expense-due-date-picker';
-import { useRouter, useSearchParams } from 'next/navigation';
 
 import ExpensesResponsiveList from '@/components/admin/finance/expenses-responsive-list/expenses-responsive-list';
 
@@ -28,35 +29,11 @@ export type AdminFinanceSummaryUI = {
     netIncomeYearIsPositive: boolean;
 };
 
-/**
- * ✅ Baseado no schema atual:
- * - Professional.id (professionalId)
- * - ganhos de serviços e comissão de produtos
- */
-export type ProfessionalMonthlyEarningsUI = {
-    professionalId: string;
-    name: string;
-    servicesEarnings: string;
-    productsEarnings: string;
-    total: string;
-};
-
-/**
- * ✅ Compat/legado (caso alguma parte do server ainda use "barber")
- */
-export type BarberMonthlyEarningsUI = {
-    barberId: string;
-    name: string;
-    servicesEarnings: string;
-    productsEarnings: string;
-    total: string;
-};
-
 export type ExpenseRowUI = {
     id: string;
     description: string;
-    dueDate: string; // dd/MM/yyyy (display)
-    amount: string; // BRL formatted (display)
+    dueDate: string;
+    amount: string;
     isRecurring: boolean;
     statusLabel: string;
     statusTone?: 'success' | 'warning' | 'danger' | 'neutral';
@@ -67,16 +44,8 @@ type AdminFinanceClientProps = {
     monthLabel: string;
     monthQuery: string;
     summary: AdminFinanceSummaryUI;
-
-    professionalEarnings?: ProfessionalMonthlyEarningsUI[];
-    barberEarnings?: BarberMonthlyEarningsUI[];
-
     expenses: ExpenseRowUI[];
     newExpenseDisabled?: boolean;
-
-    units?: never;
-    canSeeAllUnits?: boolean;
-    unitPickerDisabled?: boolean;
 };
 
 export default function AdminFinanceClient({
@@ -84,26 +53,11 @@ export default function AdminFinanceClient({
     monthLabel,
     monthQuery,
     summary,
-    professionalEarnings,
-    barberEarnings,
     expenses,
     newExpenseDisabled,
 }: AdminFinanceClientProps) {
-    const normalizedProfessionalEarnings: ProfessionalMonthlyEarningsUI[] =
-        Array.isArray(professionalEarnings)
-            ? professionalEarnings
-            : Array.isArray(barberEarnings)
-              ? barberEarnings.map((b) => ({
-                    professionalId: b.barberId,
-                    name: b.name,
-                    servicesEarnings: b.servicesEarnings,
-                    productsEarnings: b.productsEarnings,
-                    total: b.total,
-                }))
-              : [];
-
     return (
-        <div className="space-y-6 max-w-7xl">
+        <div className="max-w-7xl space-y-6">
             <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h1 className="text-title text-content-primary">
@@ -116,7 +70,7 @@ export default function AdminFinanceClient({
                     </p>
 
                     <p className="text-paragraph-small text-content-tertiary">
-                        Unidade:{' '}
+                        Escopo:{' '}
                         <span className="font-medium">{scopeLabel}</span>
                     </p>
                 </div>
@@ -126,15 +80,16 @@ export default function AdminFinanceClient({
                 </div>
             </header>
 
-            {/* RESUMO FINANCEIRO DO MÊS */}
             <section className="grid gap-4 md:grid-cols-4">
                 <div className="space-y-1 rounded-xl border border-border-primary bg-background-tertiary px-4 py-3">
                     <p className="text-label-small text-content-secondary">
                         Faturamento líquido (mês)
                     </p>
+
                     <p className="text-title text-content-primary">
                         {summary.netRevenueMonth}
                     </p>
+
                     <p className="text-paragraph-small text-content-secondary">
                         Serviços (líq.):{' '}
                         <span className="font-semibold">
@@ -151,9 +106,11 @@ export default function AdminFinanceClient({
                     <p className="text-label-small text-content-secondary">
                         Despesas (mês)
                     </p>
+
                     <p className="text-title text-content-primary">
                         {summary.totalExpenses}
                     </p>
+
                     <p className="text-paragraph-small text-content-secondary">
                         Soma apenas das despesas pagas no mês.
                     </p>
@@ -200,15 +157,12 @@ export default function AdminFinanceClient({
                 </div>
             </section>
 
-            <ProfessionalMonthlyEarningsSection
-                professionalsEarnings={normalizedProfessionalEarnings}
-            />
-
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h2 className="text-subtitle text-content-primary">
                         Cadastro de despesas (mês)
                     </h2>
+
                     <p className="text-paragraph-small text-content-secondary">
                         Contas cadastradas para este mês, incluindo despesas
                         recorrentes e avulsas.
@@ -226,77 +180,32 @@ export default function AdminFinanceClient({
     );
 }
 
-/* ========= SEÇÃO: FATURAMENTO POR PROFISSIONAL ========= */
-
-function ProfessionalMonthlyEarningsSection({
-    professionalsEarnings,
-}: {
-    professionalsEarnings: ProfessionalMonthlyEarningsUI[];
-}) {
-    const list = Array.isArray(professionalsEarnings)
-        ? professionalsEarnings
-        : [];
-
-    return (
-        <section className="space-y-3">
-            <div>
-                <h2 className="text-subtitle text-content-primary">
-                    Faturamento por profissional (mês)
-                </h2>
-                <p className="text-paragraph-small text-content-secondary">
-                    Valores de comissões de serviços e produtos no mês.
-                </p>
-            </div>
-
-            {list.length === 0 ? (
-                <p className="text-paragraph-small text-content-secondary">
-                    Nenhum profissional ativo cadastrado.
-                </p>
-            ) : (
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-                    {list.map((p) => (
-                        <div
-                            key={p.professionalId}
-                            className="min-w-0 space-y-2 rounded-xl border border-border-primary bg-background-tertiary px-4 py-3"
-                        >
-                            <p className="text-label-large text-content-primary">
-                                {p.name}
-                            </p>
-
-                            <p className="text-paragraph-small text-content-secondary">
-                                Serviços:{' '}
-                                <span className="font-semibold">
-                                    {p.servicesEarnings}
-                                </span>
-                            </p>
-
-                            <p className="text-paragraph-small text-content-secondary">
-                                Produtos:{' '}
-                                <span className="font-semibold">
-                                    {p.productsEarnings}
-                                </span>
-                            </p>
-
-                            <p className="text-paragraph-small text-content-secondary">
-                                Total:{' '}
-                                <span className="font-semibold">{p.total}</span>
-                            </p>
-                        </div>
-                    ))}
-                </div>
-            )}
-        </section>
-    );
-}
-
-/* ========= NOVA DESPESA (POST na route) ========= */
-
 type CreateExpenseResponse =
     | {
           ok: true;
-          data: { expenseId: string; monthQuery: string; created: boolean };
+          data: {
+              expenseId: string;
+              monthQuery: string;
+              created: boolean;
+          };
       }
-    | { ok: false; error: string };
+    | {
+          ok: false;
+          error: string;
+      };
+
+function parseCurrencyInput(value: FormDataEntryValue | null): number {
+    const raw = String(value ?? '').trim();
+
+    if (!raw) return Number.NaN;
+
+    const normalized = raw
+        .replace(/\s/g, '')
+        .replace(/\./g, '')
+        .replace(',', '.');
+
+    return Number(normalized);
+}
 
 function NewExpenseDialog({
     month,
@@ -306,74 +215,73 @@ function NewExpenseDialog({
     disabled?: boolean;
 }) {
     const router = useRouter();
-    const searchParams = useSearchParams();
-
-    const unitParam = searchParams.get('unit');
-    const unitId = unitParam ? unitParam : null;
 
     const [open, setOpen] = React.useState(false);
     const [submitting, setSubmitting] = React.useState(false);
     const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
 
-    const hasValidUnit = !!unitId;
+    const canCreateExpense = !disabled;
 
     const onSubmit = React.useCallback(
-        async (e: React.FormEvent<HTMLFormElement>) => {
-            e.preventDefault();
+        async (event: React.FormEvent<HTMLFormElement>) => {
+            event.preventDefault();
             setErrorMsg(null);
 
-            if (!unitId) {
-                setErrorMsg('Selecione uma unidade para cadastrar a despesa.');
-                return;
-            }
+            const form = event.currentTarget;
+            const formData = new FormData(form);
 
-            const form = e.currentTarget;
-            const fd = new FormData(form);
+            const description = String(
+                formData.get('description') ?? ''
+            ).trim();
 
-            const description = String(fd.get('description') ?? '').trim();
-            const amountRaw = String(fd.get('amount') ?? '').trim();
-            const amount = Number(amountRaw);
+            const amount = parseCurrencyInput(formData.get('amount'));
+            const isRecurring = formData.get('isRecurring') != null;
 
-            const isRecurring = fd.get('isRecurring') != null;
-            const recurringDayRaw = String(fd.get('recurringDay') ?? '').trim();
+            const recurringDayRaw = String(
+                formData.get('recurringDay') ?? ''
+            ).trim();
+
             const recurringDay = recurringDayRaw
                 ? Number(recurringDayRaw)
                 : undefined;
 
-            const dueDate = String(fd.get('dueDate') ?? '').trim() || undefined;
+            const dueDate =
+                String(formData.get('dueDate') ?? '').trim() || undefined;
 
             if (!description) {
                 setErrorMsg('Informe a descrição.');
                 return;
             }
+
             if (!Number.isFinite(amount) || amount <= 0) {
                 setErrorMsg('Informe um valor válido.');
                 return;
             }
+
             if (isRecurring) {
                 if (
                     !Number.isFinite(Number(recurringDay)) ||
                     Number(recurringDay) < 1 ||
                     Number(recurringDay) > 31
                 ) {
-                    setErrorMsg('Informe um dia de vencimento (1 a 31).');
+                    setErrorMsg('Informe um dia de vencimento entre 1 e 31.');
                     return;
                 }
-            } else {
-                if (!dueDate) {
-                    setErrorMsg('Informe a data de vencimento.');
-                    return;
-                }
+            } else if (!dueDate) {
+                setErrorMsg('Informe a data de vencimento.');
+                return;
             }
 
             setSubmitting(true);
+
             try {
-                const res = await fetch('/api/admin/finance/expenses', {
+                const response = await fetch('/api/admin/finance/expenses', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
                     body: JSON.stringify({
                         month,
-                        unitId,
                         category: 'OTHER',
                         description,
                         amount,
@@ -385,9 +293,9 @@ function NewExpenseDialog({
                     }),
                 });
 
-                const json = (await res.json()) as CreateExpenseResponse;
+                const json = (await response.json()) as CreateExpenseResponse;
 
-                if (!res.ok || !json.ok) {
+                if (!response.ok || !json.ok) {
                     setErrorMsg(!json.ok ? json.error : 'Falha ao salvar.');
                     setSubmitting(false);
                     return;
@@ -402,7 +310,7 @@ function NewExpenseDialog({
                 setSubmitting(false);
             }
         },
-        [month, router, unitId]
+        [month, router]
     );
 
     if (disabled) {
@@ -419,7 +327,7 @@ function NewExpenseDialog({
                 <Button variant="brand">Nova despesa</Button>
             </DialogTrigger>
 
-            <DialogContent className="bg-background-secondary border border-border-primary">
+            <DialogContent className="border border-border-primary bg-background-secondary">
                 <DialogHeader>
                     <DialogTitle className="text-title text-content-primary">
                         Nova despesa
@@ -429,16 +337,6 @@ function NewExpenseDialog({
                 <form onSubmit={onSubmit} className="space-y-4">
                     <input type="hidden" name="month" value={month} />
                     <input type="hidden" name="category" value="OTHER" />
-                    <input type="hidden" name="unitId" value={unitId ?? ''} />
-
-                    {!hasValidUnit && (
-                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-                            <p className="text-paragraph-small text-amber-700">
-                                Selecione uma unidade no menu lateral para
-                                cadastrar a despesa.
-                            </p>
-                        </div>
-                    )}
 
                     <div className="space-y-1">
                         <label
@@ -447,12 +345,13 @@ function NewExpenseDialog({
                         >
                             Descrição
                         </label>
+
                         <Input
                             id="description"
                             name="description"
                             required
                             placeholder="Ex: Aluguel, Luz, Internet..."
-                            className="bg-background-tertiary border-border-primary text-content-primary"
+                            className="border-border-primary bg-background-tertiary text-content-primary"
                         />
                     </div>
 
@@ -463,14 +362,15 @@ function NewExpenseDialog({
                         >
                             Valor (R$)
                         </label>
+
                         <Input
                             id="amount"
                             name="amount"
-                            type="number"
-                            step="0.01"
-                            min="0"
+                            type="text"
+                            inputMode="decimal"
                             required
-                            className="bg-background-tertiary border-border-primary text-content-primary"
+                            placeholder="Ex: 450,45"
+                            className="border-border-primary bg-background-tertiary text-content-primary"
                         />
                     </div>
 
@@ -484,34 +384,25 @@ function NewExpenseDialog({
 
                         <label
                             htmlFor="isRecurring"
-                            className="
-                inline-flex items-center gap-2 cursor-pointer
-                peer-checked:[&_.box]:bg-border-brand
-                peer-checked:[&_.box]:border-border-brand
-                peer-checked:[&_.check]:bg-background-primary
-              "
+                            className="inline-flex cursor-pointer items-center gap-2 peer-checked:[&_.box]:border-border-brand peer-checked:[&_.box]:bg-border-brand peer-checked:[&_.check]:bg-background-primary"
                         >
-                            <span
-                                className="
-                  box flex h-4 w-4 items-center justify-center
-                  rounded border border-border-primary bg-background-tertiary
-                  transition-colors
-                "
-                            >
+                            <span className="box flex h-4 w-4 items-center justify-center rounded border border-border-primary bg-background-tertiary transition-colors">
                                 <span className="check h-2 w-2 rounded-sm bg-transparent transition-colors" />
                             </span>
+
                             <span className="text-label-small text-content-primary">
                                 Despesa recorrente
                             </span>
                         </label>
 
-                        <div className="space-y-1 hidden peer-checked:block">
+                        <div className="hidden space-y-1 peer-checked:block">
                             <label
                                 className="text-label-small text-content-secondary"
                                 htmlFor="recurringDay"
                             >
-                                Dia de vencimento (se recorrente)
+                                Dia de vencimento
                             </label>
+
                             <Input
                                 id="recurringDay"
                                 name="recurringDay"
@@ -519,12 +410,13 @@ function NewExpenseDialog({
                                 min={1}
                                 max={31}
                                 placeholder="Ex: 10"
-                                className="bg-background-tertiary border-border-primary text-content-primary"
+                                className="border-border-primary bg-background-tertiary text-content-primary"
                             />
+
                             <p className="text-paragraph-small text-content-secondary">
                                 Para despesas recorrentes, informe apenas o dia
-                                de vencimento (se for 31 e o mês não tiver, cai
-                                no último dia do mês).
+                                de vencimento. Se for 31 e o mês não tiver esse
+                                dia, a despesa cai no último dia do mês.
                             </p>
                         </div>
 
@@ -533,7 +425,7 @@ function NewExpenseDialog({
                                 className="text-label-small text-content-secondary"
                                 htmlFor="dueDate"
                             >
-                                Data de vencimento (se NÃO recorrente)
+                                Data de vencimento
                             </label>
 
                             <ExpenseDueDatePicker id="dueDate" name="dueDate" />
@@ -557,12 +449,7 @@ function NewExpenseDialog({
                         <Button
                             type="submit"
                             variant="brand"
-                            disabled={submitting || !hasValidUnit}
-                            title={
-                                !hasValidUnit
-                                    ? 'Selecione uma unidade para salvar'
-                                    : undefined
-                            }
+                            disabled={submitting || !canCreateExpense}
                         >
                             {submitting ? 'Salvando...' : 'Salvar'}
                         </Button>
