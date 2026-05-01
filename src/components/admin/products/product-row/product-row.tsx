@@ -1,4 +1,3 @@
-// src/components/admin/products/product-row/product-row.tsx
 'use client';
 
 import * as React from 'react';
@@ -43,10 +42,7 @@ function Badge({
     title?: string;
 }) {
     return (
-        <span
-            title={title}
-            className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs bg-muted/40 border-border-primary text-content-secondary"
-        >
+        <span className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs bg-muted/40 border-border-primary text-content-secondary">
             {children}
         </span>
     );
@@ -56,13 +52,6 @@ function MoneyBRL(v: number) {
     const n = Number(v);
     if (!Number.isFinite(n)) return '—';
     return `R$ ${n.toFixed(2)}`;
-}
-
-function CommissionText(v: number | null | undefined) {
-    if (v === null || v === undefined) return '-';
-    const n = Number(v);
-    if (!Number.isFinite(n)) return '-';
-    return `${n}%`;
 }
 
 function getCategoryText(product: ProductForRow) {
@@ -75,29 +64,11 @@ function getCategoryText(product: ProductForRow) {
 }
 
 function ProductBadges({ product }: { product: ProductForRow }) {
-    const birthdayBenefitEnabled = false;
-    const hasLevelPrices = Boolean(product.hasLevelPrices);
-    const isFeatured = Boolean(product.isFeatured);
-
-    if (!isFeatured && !birthdayBenefitEnabled && !hasLevelPrices) return null;
+    if (!product.isFeatured) return null;
 
     return (
         <div className="flex flex-wrap items-center gap-2">
-            {isFeatured && (
-                <Badge title="Este produto aparece no carrossel de Destaques do app.">
-                    ⭐ Destaque
-                </Badge>
-            )}
-            {hasLevelPrices && (
-                <Badge title="Este produto tem descontos por nível.">
-                    💎 Níveis
-                </Badge>
-            )}
-            {birthdayBenefitEnabled && (
-                <Badge title="Este produto tem benefício de aniversário.">
-                    🎂 Aniversário
-                </Badge>
-            )}
+            <Badge>⭐ Destaque</Badge>
         </div>
     );
 }
@@ -121,18 +92,10 @@ async function toggleProductActive(productId: string) {
         body: JSON.stringify({ toggleActive: true }),
     });
 
-    const json = (await res.json().catch(() => null)) as
-        | { ok: true; data?: unknown }
-        | { ok: false; error?: string }
-        | null;
+    const json = await res.json().catch(() => null);
 
-    if (!res.ok || !json || json.ok !== true) {
-        const msg =
-            json && json.ok === false && json.error
-                ? json.error
-                : 'Não foi possível alterar o status do produto.';
-
-        return { ok: false as const, error: msg };
+    if (!res.ok || !json?.ok) {
+        return { ok: false as const, error: 'Erro ao atualizar produto' };
     }
 
     return { ok: true as const };
@@ -152,46 +115,41 @@ export function ProductRow({ product, categories = [] }: ProductRowProps) {
 
     function handleToggleActive() {
         startTransition(async () => {
-            try {
-                const out = await toggleProductActive(product.id);
-                if (!out.ok) {
-                    toast.error(out.error);
-                    return;
-                }
+            const out = await toggleProductActive(product.id);
 
-                toast.success(
-                    product.isActive
-                        ? 'Produto desativado.'
-                        : 'Produto ativado.'
-                );
-                router.refresh();
-            } catch {
-                toast.error('Erro de rede ao alterar status do produto.');
+            if (!out.ok) {
+                toast.error(out.error);
+                return;
             }
+
+            toast.success(
+                product.isActive ? 'Produto desativado.' : 'Produto ativado.'
+            );
+
+            router.refresh();
         });
     }
 
     return (
         <tr className="border-t border-border-primary">
             <td className="px-4 py-3">
-                <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border-primary bg-background-secondary">
+                <div className="flex min-w-0 items-center gap-4">
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border-primary">
                         {shouldShowImg ? (
                             <img
                                 src={imgSrc}
-                                alt={product.name}
                                 className="h-full w-full object-cover"
                                 onError={() => setImgFailed(true)}
                             />
                         ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[10px] text-content-secondary">
+                            <div className="flex h-full w-full items-center justify-center text-xs">
                                 Sem foto
                             </div>
                         )}
                     </div>
 
-                    <div className="flex min-w-0 flex-col gap-2">
-                        <span className="font-medium text-content-primary leading-tight">
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <span className="truncate font-medium">
                             {displayName}
                         </span>
 
@@ -204,48 +162,35 @@ export function ProductRow({ product, categories = [] }: ProductRowProps) {
                 {MoneyBRL(product.price)}
             </td>
 
-            <td className="px-4 py-3 whitespace-nowrap">
-                {CommissionText(product.barberPercentage)}
-            </td>
-
-            <td
-                className="px-4 py-3 text-content-secondary"
-                title={categoryText}
-            >
-                {truncate(categoryText, 70) || '—'}
+            <td className="px-4 py-3 truncate" title={categoryText}>
+                {categoryText || '—'}
             </td>
 
             <td className="px-4 py-3 whitespace-nowrap">
                 {product.stockQuantity} un.
             </td>
 
-            <td className="px-4 py-3">
-                <span className="text-content-primary">{deadlineText}</span>
-                <span className="block text-[11px] text-content-secondary">
+            <td className="px-4 py-3 whitespace-nowrap">
+                {deadlineText}
+                <span className="block text-xs text-content-secondary">
                     Retirada
                 </span>
             </td>
 
             <td className="px-4 py-3">
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex justify-end gap-2">
                     <ProductEditDialog
                         product={product}
                         categories={categories}
                     />
 
                     <Button
-                        variant={product.isActive ? 'destructive' : 'active'}
+                        variant={product.isActive ? 'destructive' : 'default'}
                         size="sm"
-                        type="button"
-                        className="border-border-primary hover:bg-muted/40"
                         onClick={handleToggleActive}
                         disabled={isPending}
                     >
-                        {isPending
-                            ? 'Aguarde...'
-                            : product.isActive
-                              ? 'Desativar'
-                              : 'Ativar'}
+                        {product.isActive ? 'Desativar' : 'Ativar'}
                     </Button>
                 </div>
             </td>
@@ -272,6 +217,7 @@ export function ProductRowMobile({
         startTransition(async () => {
             try {
                 const out = await toggleProductActive(product.id);
+
                 if (!out.ok) {
                     toast.error(out.error);
                     return;
@@ -282,6 +228,7 @@ export function ProductRowMobile({
                         ? 'Produto desativado.'
                         : 'Produto ativado.'
                 );
+
                 router.refresh();
             } catch {
                 toast.error('Erro de rede ao alterar status do produto.');
@@ -290,8 +237,8 @@ export function ProductRowMobile({
     }
 
     return (
-        <div className="rounded-xl border border-border-primary bg-background-tertiary overflow-hidden">
-            <div className="p-4 space-y-3">
+        <div className="overflow-hidden rounded-xl border border-border-primary bg-background-tertiary">
+            <div className="space-y-3 p-4">
                 <div className="flex items-start gap-3">
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-border-primary bg-background-secondary">
                         {shouldShowImg ? (
@@ -309,7 +256,7 @@ export function ProductRowMobile({
                     </div>
 
                     <div className="min-w-0 flex-1 space-y-2">
-                        <p className="text-paragraph-medium-size font-semibold text-content-primary truncate">
+                        <p className="truncate text-paragraph-medium-size font-semibold text-content-primary">
                             {displayName}
                         </p>
 
@@ -319,23 +266,22 @@ export function ProductRowMobile({
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                     <Info label="Preço" value={MoneyBRL(product.price)} />
-                    <Info
-                        label="Comissão"
-                        value={CommissionText(product.barberPercentage)}
-                    />
+
                     <Info
                         label="Categorias"
                         value={categoryText}
                         title={categoryText}
                     />
+
                     <Info
                         label="Estoque"
                         value={`${product.stockQuantity} un.`}
                     />
+
                     <Info label="Prazo" value={deadlineText} />
                 </div>
 
-                <div className="pt-2 space-y-2">
+                <div className="space-y-2 pt-2">
                     <p className="text-xs text-content-tertiary">Ações</p>
 
                     <div className="flex flex-wrap gap-2">
@@ -379,7 +325,7 @@ function Info({
     return (
         <div className="space-y-1">
             <p className="text-content-tertiary">{label}</p>
-            <p className="text-content-secondary truncate" title={title}>
+            <p className="truncate text-content-secondary" title={title}>
                 {value}
             </p>
         </div>

@@ -1,13 +1,9 @@
-// src/components/admin/products/products-responsive-list/products-responsive-list.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 
 import type { ProductForRow } from '@/app/admin/products/page';
-import {
-    ProductRow,
-    ProductRowMobile,
-} from '@/components/admin/products/product-row/product-row';
+import { ProductRow } from '@/components/admin/products/product-row/product-row';
 
 type CategoryOption = {
     id: string;
@@ -25,9 +21,8 @@ export function ProductsResponsiveList({
 }) {
     const [isDesktop, setIsDesktop] = useState<boolean | null>(null);
 
-    // ✅ Evita mismatch SSR: só decide depois do mount
     useEffect(() => {
-        const mq = window.matchMedia('(min-width: 768px)'); // md
+        const mq = window.matchMedia('(min-width: 768px)');
 
         const update = () => setIsDesktop(mq.matches);
         update();
@@ -37,15 +32,12 @@ export function ProductsResponsiveList({
             return () => mq.removeEventListener('change', update);
         }
 
-        // eslint-disable-next-line deprecation/deprecation
         mq.addListener(update);
-        // eslint-disable-next-line deprecation/deprecation
         return () => mq.removeListener(update);
     }, []);
 
     const list = Array.isArray(products) ? products : [];
 
-    // ✅ Enquanto não sabe o breakpoint, não renderiza nada (evita piscar)
     if (isDesktop === null) return null;
 
     if (!isDesktop) {
@@ -64,15 +56,13 @@ export function ProductsResponsiveList({
 
     return (
         <section className="overflow-x-auto rounded-xl border border-border-primary bg-background-tertiary">
-            <table className="w-full table-fixed border-collapse text-sm">
+            <table className="min-w-250 w-full border-collapse text-sm">
                 <colgroup>
-                    <col className="w-95" />
-                    <col className="w-55" />
-                    <col className="w-27.5" />
-                    <col className="w-27.5" />
-                    <col className="w-27.5" />
-                    <col className="w-27.5" />
-                    <col className="w-27.5" />
+                    <col className="w-90" />
+                    <col className="w-35" />
+                    <col className="w-35" />
+                    <col className="w-35" />
+                    <col className="w-35" />
                     <col className="w-60" />
                 </colgroup>
 
@@ -82,13 +72,7 @@ export function ProductsResponsiveList({
                             Produto
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-content-secondary">
-                            Unidade
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-content-secondary">
                             Preço
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-content-secondary">
-                            Comissão
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-content-secondary">
                             Categorias
