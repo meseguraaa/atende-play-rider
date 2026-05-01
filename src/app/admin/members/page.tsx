@@ -48,6 +48,11 @@ type MemberRow = {
     createdAt: Date;
     birthday: Date | null;
     isActive: boolean;
+    vehicle: {
+        motorcycle: string;
+        plate: string;
+        cylinderCc: number | null;
+    } | null;
 };
 
 type SortKey = 'name_asc' | 'name_desc' | 'createdAt_desc' | 'createdAt_asc';
@@ -181,7 +186,7 @@ function FiltersForm({
                         <Input
                             name="q"
                             defaultValue={q}
-                            placeholder="Nome, e-mail ou telefone..."
+                            placeholder="Nome, e-mail, telefone ou moto..."
                             className="h-10 bg-background-secondary border-border-primary"
                         />
                     </div>
@@ -297,6 +302,18 @@ export default async function AdminMembersPage({
             { name: { contains: q, mode: 'insensitive' } },
             { email: { contains: q, mode: 'insensitive' } },
             { phone: { contains: q } },
+            {
+                memberVehicles: {
+                    some: {
+                        companyId,
+                        isActive: true,
+                        OR: [
+                            { model: { contains: q, mode: 'insensitive' } },
+                            { plate: { contains: q.toUpperCase() } },
+                        ],
+                    },
+                },
+            },
         ];
     }
 
@@ -320,6 +337,19 @@ export default async function AdminMembersPage({
             image: true,
             createdAt: true,
             birthday: true,
+            memberVehicles: {
+                where: {
+                    companyId,
+                    isActive: true,
+                },
+                orderBy: [{ isMain: 'desc' }, { createdAt: 'desc' }],
+                select: {
+                    model: true,
+                    plate: true,
+                    cylinderCc: true,
+                },
+                take: 1,
+            },
         },
     });
 
@@ -358,16 +388,27 @@ export default async function AdminMembersPage({
         isActiveByUserId.set(m.userId, m.isActive);
     }
 
-    const rows: MemberRow[] = pagedUsers.map((u) => ({
-        id: u.id,
-        name: u.name ?? 'Sem nome',
-        email: u.email ?? '',
-        phone: u.phone ?? '',
-        image: u.image ?? null,
-        createdAt: u.createdAt,
-        birthday: u.birthday ?? null,
-        isActive: isActiveByUserId.get(u.id) ?? true,
-    }));
+    const rows: MemberRow[] = pagedUsers.map((u) => {
+        const vehicle = u.memberVehicles[0] ?? null;
+
+        return {
+            id: u.id,
+            name: u.name ?? 'Sem nome',
+            email: u.email ?? '',
+            phone: u.phone ?? '',
+            image: u.image ?? null,
+            createdAt: u.createdAt,
+            birthday: u.birthday ?? null,
+            isActive: isActiveByUserId.get(u.id) ?? true,
+            vehicle: vehicle
+                ? {
+                      motorcycle: vehicle.model ?? '',
+                      plate: vehicle.plate ?? '',
+                      cylinderCc: vehicle.cylinderCc ?? null,
+                  }
+                : null,
+        };
+    });
 
     const { pages, showLeftEllipsis, showRightEllipsis, firstPage, lastPage } =
         getPageRange(page, totalPages);
@@ -475,6 +516,21 @@ export default async function AdminMembersPage({
                                                 <p className="text-xs text-content-secondary truncate">
                                                     {row.email || 'Sem e-mail'}
                                                 </p>
+
+                                                <p className="text-xs text-content-tertiary truncate">
+                                                    {row.vehicle?.motorcycle
+                                                        ? `${row.vehicle.motorcycle}${
+                                                              row.vehicle.plate
+                                                                  ? ` • ${row.vehicle.plate}`
+                                                                  : ''
+                                                          }${
+                                                              row.vehicle
+                                                                  .cylinderCc
+                                                                  ? ` • ${row.vehicle.cylinderCc}cc`
+                                                                  : ''
+                                                          }`
+                                                        : 'Moto não informada'}
+                                                </p>
                                             </div>
                                         </div>
                                     </AccordionTrigger>
@@ -492,13 +548,20 @@ export default async function AdminMembersPage({
                                                 email: row.email,
                                                 phone: row.phone ?? '',
                                                 birthday: row.birthday,
+                                                motorcycle:
+                                                    row.vehicle?.motorcycle ??
+                                                    '',
+                                                plate: row.vehicle?.plate ?? '',
+                                                cylinderCc:
+                                                    row.vehicle?.cylinderCc ??
+                                                    null,
                                             }}
                                         />
                                     </div>
                                 </div>
 
                                 <AccordionContent className="border-t border-border-primary px-4 py-4">
-                                    <div className="grid gap-4 md:grid-cols-3">
+                                    <div className="grid gap-4 md:grid-cols-2">
                                         <div className="rounded-xl border border-border-primary bg-background-secondary p-4 space-y-2">
                                             <p className="text-label-small text-content-primary">
                                                 Dados do membro
@@ -551,6 +614,7 @@ export default async function AdminMembersPage({
                                                         {row.phone || '—'}
                                                     </span>
                                                 </div>
+
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-content-secondary shrink-0">
                                                         Nascimento:
@@ -578,6 +642,45 @@ export default async function AdminMembersPage({
                                                             'dd/MM/yyyy HH:mm',
                                                             { locale: ptBR }
                                                         )}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-xl border border-border-primary bg-background-secondary p-4 space-y-2">
+                                            <p className="text-label-small text-content-primary">
+                                                Dados da moto
+                                            </p>
+
+                                            <div className="space-y-2 text-paragraph-small">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-content-secondary shrink-0">
+                                                        Moto:
+                                                    </span>
+                                                    <span className="text-content-primary font-medium flex-1 min-w-0 truncate">
+                                                        {row.vehicle
+                                                            ?.motorcycle || '—'}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-content-secondary shrink-0">
+                                                        Placa:
+                                                    </span>
+                                                    <span className="text-content-primary flex-1 min-w-0 truncate">
+                                                        {row.vehicle?.plate ||
+                                                            '—'}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-content-secondary shrink-0">
+                                                        Cilindrada:
+                                                    </span>
+                                                    <span className="text-content-primary flex-1 min-w-0 truncate">
+                                                        {row.vehicle?.cylinderCc
+                                                            ? `${row.vehicle.cylinderCc}cc`
+                                                            : '—'}
                                                     </span>
                                                 </div>
                                             </div>

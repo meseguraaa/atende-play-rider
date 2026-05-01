@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import { User, Mail, Phone, Loader2 } from 'lucide-react';
+import { Bike, Gauge, Loader2, Mail, Phone, User } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -37,6 +37,9 @@ type AdminEditMemberDialogProps = {
         email: string;
         phone: string;
         birthday: Date | null;
+        motorcycle?: string;
+        plate?: string;
+        cylinderCc?: number | null;
     };
 };
 
@@ -51,6 +54,13 @@ function formatPhone(value: string): string {
     if (digits.length <= 2) return `(${digits}`;
     if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function formatPlate(value: string): string {
+    return String(value ?? '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 7);
 }
 
 function parseISODateToDate(dateISO: string): Date | null {
@@ -128,6 +138,12 @@ export function AdminEditMemberDialog({ member }: AdminEditMemberDialogProps) {
         dateToISODateLocal(member.birthday)
     );
 
+    const [motorcycle, setMotorcycle] = React.useState(member.motorcycle ?? '');
+    const [plate, setPlate] = React.useState(formatPlate(member.plate ?? ''));
+    const [cylinderCc, setCylinderCc] = React.useState(
+        member.cylinderCc ? String(member.cylinderCc) : ''
+    );
+
     const [birthdayPopoverOpen, setBirthdayPopoverOpen] = React.useState(false);
 
     function resetAll() {
@@ -135,6 +151,9 @@ export function AdminEditMemberDialog({ member }: AdminEditMemberDialogProps) {
         setEmail(member.email ?? '');
         setPhone(formatPhone(member.phone ?? ''));
         setBirthday(dateToISODateLocal(member.birthday));
+        setMotorcycle(member.motorcycle ?? '');
+        setPlate(formatPlate(member.plate ?? ''));
+        setCylinderCc(member.cylinderCc ? String(member.cylinderCc) : '');
         setBirthdayPopoverOpen(false);
     }
 
@@ -156,10 +175,18 @@ export function AdminEditMemberDialog({ member }: AdminEditMemberDialogProps) {
         const ph = phone.trim();
         const bd = birthday.trim();
 
+        const moto = motorcycle.trim();
+        const vehiclePlate = plate.trim().toUpperCase();
+        const ccDigits = onlyDigits(cylinderCc.trim());
+
         if (!n) return toast.error('Informe o nome do membro.');
         if (!em) return toast.error('Informe o e-mail do membro.');
         if (!ph) return toast.error('Informe o telefone do membro.');
         if (!bd) return toast.error('Preencha a data de nascimento.');
+
+        if (!moto) return toast.error('Informe a moto do membro.');
+        if (!vehiclePlate) return toast.error('Informe a placa da moto.');
+        if (!ccDigits) return toast.error('Informe a cilindrada da moto.');
 
         const digits = onlyDigits(ph);
         if (digits.length < 10) {
@@ -168,6 +195,11 @@ export function AdminEditMemberDialog({ member }: AdminEditMemberDialogProps) {
 
         if (!parseISODateToDate(bd)) {
             return toast.error('Informe uma data de nascimento válida.');
+        }
+
+        const parsedCylinderCc = Number(ccDigits);
+        if (!Number.isFinite(parsedCylinderCc) || parsedCylinderCc <= 0) {
+            return toast.error('Informe uma cilindrada válida.');
         }
 
         try {
@@ -181,6 +213,9 @@ export function AdminEditMemberDialog({ member }: AdminEditMemberDialogProps) {
                     email: em,
                     phone: ph,
                     birthday: bd,
+                    motorcycle: moto,
+                    plate: vehiclePlate,
+                    cylinderCc: parsedCylinderCc,
                 }),
             });
 
@@ -378,6 +413,100 @@ export function AdminEditMemberDialog({ member }: AdminEditMemberDialogProps) {
                                 />
                             </PopoverContent>
                         </Popover>
+                    </div>
+
+                    <div className="border-t border-border-primary pt-4 space-y-4">
+                        <div>
+                            <p className="text-label-medium-size text-content-primary">
+                                Dados da moto
+                            </p>
+                            <p className="text-[11px] text-content-tertiary">
+                                Atualize os dados principais da moto do membro.
+                            </p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label
+                                className="text-label-medium-size text-content-primary"
+                                htmlFor={`edit-member-motorcycle-${member.id}`}
+                            >
+                                Moto <span className="text-red-500">*</span>
+                            </label>
+
+                            <IconInput
+                                id={`edit-member-motorcycle-${member.id}`}
+                                name="motorcycle"
+                                icon={Bike}
+                                value={motorcycle}
+                                onChange={(ev) =>
+                                    setMotorcycle(ev.target.value)
+                                }
+                                disabled={isPending}
+                                disabledIcon={isPending}
+                                placeholder="Ex.: Honda CB 500F"
+                                className={inputBase}
+                            />
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <label
+                                    className="text-label-medium-size text-content-primary"
+                                    htmlFor={`edit-member-plate-${member.id}`}
+                                >
+                                    Placa{' '}
+                                    <span className="text-red-500">*</span>
+                                </label>
+
+                                <IconInput
+                                    id={`edit-member-plate-${member.id}`}
+                                    name="plate"
+                                    icon={Bike}
+                                    value={plate}
+                                    onChange={(ev) =>
+                                        setPlate(formatPlate(ev.target.value))
+                                    }
+                                    disabled={isPending}
+                                    disabledIcon={isPending}
+                                    placeholder="ABC1D23"
+                                    className={inputBase}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label
+                                    className="text-label-medium-size text-content-primary"
+                                    htmlFor={`edit-member-cylinder-cc-${member.id}`}
+                                >
+                                    Cilindrada{' '}
+                                    <span className="text-red-500">*</span>
+                                </label>
+
+                                <IconInput
+                                    id={`edit-member-cylinder-cc-${member.id}`}
+                                    name="cylinderCc"
+                                    inputMode="numeric"
+                                    icon={Gauge}
+                                    value={cylinderCc}
+                                    onChange={(ev) =>
+                                        setCylinderCc(
+                                            onlyDigits(ev.target.value).slice(
+                                                0,
+                                                5
+                                            )
+                                        )
+                                    }
+                                    disabled={isPending}
+                                    disabledIcon={isPending}
+                                    placeholder="Ex.: 500"
+                                    className={inputBase}
+                                />
+
+                                <p className="text-[11px] text-content-tertiary">
+                                    Informe apenas números. Ex.: 160, 300, 650.
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     <DialogFooter className="gap-2 sm:gap-3 pt-2">

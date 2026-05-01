@@ -25,6 +25,22 @@ function onlyDigits(v: string) {
     return String(v ?? '').replace(/\D/g, '');
 }
 
+function normalizePlate(v: unknown) {
+    return normalizeString(v)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+}
+
+function parseCylinderCc(v: unknown): number | null {
+    const digits = onlyDigits(normalizeString(v));
+    if (!digits) return null;
+
+    const n = Number(digits);
+    if (!Number.isFinite(n) || n <= 0) return null;
+
+    return n;
+}
+
 function parseOptionalBoolean(v: unknown): boolean | null {
     if (typeof v === 'boolean') return v;
 
@@ -140,14 +156,26 @@ export async function PATCH(
             'isActive'
         );
 
+        const hasMotorcycle = Object.prototype.hasOwnProperty.call(
+            body,
+            'motorcycle'
+        );
+        const hasPlate = Object.prototype.hasOwnProperty.call(body, 'plate');
+        const hasCylinderCc = Object.prototype.hasOwnProperty.call(
+            body,
+            'cylinderCc'
+        );
+
         const wantsProfileUpdate =
             hasName || hasEmail || hasPhone || hasBirthday;
+
+        const wantsVehicleUpdate = hasMotorcycle || hasPlate || hasCylinderCc;
 
         const nextIsActive = hasIsActive
             ? parseOptionalBoolean(body.isActive)
             : null;
 
-        if (!wantsProfileUpdate && !hasIsActive) {
+        if (!wantsProfileUpdate && !hasIsActive && !wantsVehicleUpdate) {
             return jsonErr('Nenhum campo para atualizar foi informado.');
         }
 
@@ -207,6 +235,20 @@ export async function PATCH(
             parsedBirthday = birthday;
         }
 
+        let motorcycle = '';
+        let plate = '';
+        let cylinderCc: number | null = null;
+
+        if (wantsVehicleUpdate) {
+            motorcycle = normalizeString(body.motorcycle);
+            plate = normalizePlate(body.plate);
+            cylinderCc = parseCylinderCc(body.cylinderCc);
+
+            if (!motorcycle) return jsonErr('Informe a moto do membro.');
+            if (!plate) return jsonErr('Informe a placa da moto.');
+            if (!cylinderCc) return jsonErr('Informe uma cilindrada válida.');
+        }
+
         await prisma.$transaction(async (tx) => {
             if (wantsProfileUpdate) {
                 await tx.user.update({
@@ -219,6 +261,46 @@ export async function PATCH(
                     },
                     select: { id: true },
                 });
+            }
+
+            if (wantsVehicleUpdate) {
+                const mainVehicle = await tx.memberVehicle.findFirst({
+                    where: {
+                        companyId,
+                        userId,
+                        isMain: true,
+                        isActive: true,
+                    },
+                    select: { id: true },
+                    orderBy: { createdAt: 'desc' },
+                });
+
+                if (mainVehicle) {
+                    await tx.memberVehicle.update({
+                        where: { id: mainVehicle.id },
+                        data: {
+                            model: motorcycle,
+                            plate,
+                            cylinderCc,
+                            isMain: true,
+                            isActive: true,
+                        },
+                        select: { id: true },
+                    });
+                } else {
+                    await tx.memberVehicle.create({
+                        data: {
+                            companyId,
+                            userId,
+                            model: motorcycle,
+                            plate,
+                            cylinderCc,
+                            isMain: true,
+                            isActive: true,
+                        },
+                        select: { id: true },
+                    });
+                }
             }
 
             if (hasIsActive && nextIsActive !== null) {

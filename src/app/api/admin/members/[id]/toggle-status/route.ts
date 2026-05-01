@@ -6,7 +6,7 @@ export async function PATCH(
     req: NextRequest,
     context: { params: Promise<{ id: string }> }
 ) {
-    const session = await requireAdminForModule('CLIENTS');
+    const session = await requireAdminForModule('MEMBERS');
 
     const { id: userId } = await context.params;
 

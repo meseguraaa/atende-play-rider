@@ -29,6 +29,22 @@ function normalizeString(v: unknown) {
     return String(v ?? '').trim();
 }
 
+function normalizePlate(v: unknown) {
+    return normalizeString(v)
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+}
+
+function parseCylinderCc(v: unknown): number | null {
+    const digits = onlyDigits(normalizeString(v));
+    if (!digits) return null;
+
+    const n = Number(digits);
+    if (!Number.isFinite(n) || n <= 0) return null;
+
+    return n;
+}
+
 type SortKey = 'name_asc' | 'name_desc' | 'createdAt_desc' | 'createdAt_asc';
 
 function normalizeSort(v: string | null): SortKey {
@@ -172,6 +188,18 @@ export async function GET(req: Request) {
                 { name: { contains: q, mode: 'insensitive' } },
                 { email: { contains: q, mode: 'insensitive' } },
                 { phone: { contains: q } },
+                {
+                    memberVehicles: {
+                        some: {
+                            companyId,
+                            isActive: true,
+                            OR: [
+                                { model: { contains: q, mode: 'insensitive' } },
+                                { plate: { contains: q.toUpperCase() } },
+                            ],
+                        },
+                    },
+                },
             ];
         }
 
@@ -211,6 +239,20 @@ export async function GET(req: Request) {
                     },
                     take: 1,
                 },
+                memberVehicles: {
+                    where: {
+                        companyId,
+                        isActive: true,
+                    },
+                    orderBy: [{ isMain: 'desc' }, { createdAt: 'desc' }],
+                    select: {
+                        id: true,
+                        model: true,
+                        plate: true,
+                        cylinderCc: true,
+                    },
+                    take: 1,
+                },
             },
         });
 
@@ -224,6 +266,14 @@ export async function GET(req: Request) {
                 birthday: user.birthday,
                 createdAt: user.createdAt,
                 isActive: user.companyMemberships[0]?.isActive ?? true,
+                vehicle: user.memberVehicles[0]
+                    ? {
+                          id: user.memberVehicles[0].id,
+                          motorcycle: user.memberVehicles[0].model ?? '',
+                          plate: user.memberVehicles[0].plate ?? '',
+                          cylinderCc: user.memberVehicles[0].cylinderCc ?? null,
+                      }
+                    : null,
             })),
             page: safePage,
             pageSize,
@@ -251,9 +301,16 @@ export async function POST(req: Request) {
         const phone = normalizeString(body.phone);
         const birthdayRaw = normalizeString(body.birthday);
 
+        const motorcycle = normalizeString(body.motorcycle);
+        const plate = normalizePlate(body.plate);
+        const cylinderCc = parseCylinderCc(body.cylinderCc);
+
         if (!name) return jsonErr('Informe o nome do membro.');
         if (!email) return jsonErr('Informe o e-mail do membro.');
         if (!phone) return jsonErr('Informe o telefone do membro.');
+        if (!motorcycle) return jsonErr('Informe a moto do membro.');
+        if (!plate) return jsonErr('Informe a placa da moto.');
+        if (!cylinderCc) return jsonErr('Informe uma cilindrada válida.');
 
         const digits = onlyDigits(phone);
         if (digits.length < 10) {
@@ -267,42 +324,71 @@ export async function POST(req: Request) {
             );
         }
 
-        const user = await prisma.user.upsert({
-            where: { email },
-            update: {
-                name,
-                phone,
-                birthday,
-            },
-            create: {
-                name,
-                email,
-                phone,
-                birthday,
-                role: 'CLIENT',
-                isActive: true,
-            },
-            select: { id: true },
-        });
-
-        await prisma.companyMember.upsert({
-            where: {
-                companyId_userId: {
-                    companyId,
-                    userId: user.id,
+        const user = await prisma.$transaction(async (tx) => {
+            const createdOrUpdatedUser = await tx.user.upsert({
+                where: { email },
+                update: {
+                    name,
+                    phone,
+                    birthday,
                 },
-            },
-            update: {
-                role: 'CLIENT',
-                isActive: true,
-            },
-            create: {
-                companyId,
-                userId: user.id,
-                role: 'CLIENT',
-                isActive: true,
-            },
-            select: { id: true },
+                create: {
+                    name,
+                    email,
+                    phone,
+                    birthday,
+                    role: 'CLIENT',
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+
+            await tx.companyMember.upsert({
+                where: {
+                    companyId_userId: {
+                        companyId,
+                        userId: createdOrUpdatedUser.id,
+                    },
+                },
+                update: {
+                    role: 'CLIENT',
+                    isActive: true,
+                },
+                create: {
+                    companyId,
+                    userId: createdOrUpdatedUser.id,
+                    role: 'CLIENT',
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+
+            await tx.memberVehicle.updateMany({
+                where: {
+                    companyId,
+                    userId: createdOrUpdatedUser.id,
+                    isMain: true,
+                    isActive: true,
+                },
+                data: {
+                    isMain: false,
+                },
+            });
+
+            await tx.memberVehicle.create({
+                data: {
+                    companyId,
+                    userId: createdOrUpdatedUser.id,
+                    model: motorcycle,
+                    plate,
+                    cylinderCc,
+                    isMain: true,
+                    isActive: true,
+                },
+                select: { id: true },
+            });
+
+            return createdOrUpdatedUser;
         });
 
         return jsonOk({ id: user.id });
@@ -336,10 +422,25 @@ export async function PATCH(req: Request) {
         const phone = normalizeString(body.phone);
         const birthdayRaw = normalizeString(body.birthday);
 
+        const motorcycle = normalizeString(body.motorcycle);
+        const plate = normalizePlate(body.plate);
+        const cylinderCc = parseCylinderCc(body.cylinderCc);
+
         if (!id) return jsonErr('Informe o id do membro.');
         if (!name) return jsonErr('Informe o nome do membro.');
         if (!email) return jsonErr('Informe o e-mail do membro.');
         if (!phone) return jsonErr('Informe o telefone do membro.');
+
+        const hasVehicleFields =
+            Object.prototype.hasOwnProperty.call(body, 'motorcycle') ||
+            Object.prototype.hasOwnProperty.call(body, 'plate') ||
+            Object.prototype.hasOwnProperty.call(body, 'cylinderCc');
+
+        if (hasVehicleFields) {
+            if (!motorcycle) return jsonErr('Informe a moto do membro.');
+            if (!plate) return jsonErr('Informe a placa da moto.');
+            if (!cylinderCc) return jsonErr('Informe uma cilindrada válida.');
+        }
 
         const digits = onlyDigits(phone);
         if (digits.length < 10) {
@@ -400,6 +501,46 @@ export async function PATCH(req: Request) {
                 },
                 select: { id: true },
             });
+
+            if (hasVehicleFields) {
+                const mainVehicle = await tx.memberVehicle.findFirst({
+                    where: {
+                        companyId,
+                        userId: id,
+                        isMain: true,
+                        isActive: true,
+                    },
+                    select: { id: true },
+                    orderBy: { createdAt: 'desc' },
+                });
+
+                if (mainVehicle) {
+                    await tx.memberVehicle.update({
+                        where: { id: mainVehicle.id },
+                        data: {
+                            model: motorcycle,
+                            plate,
+                            cylinderCc,
+                            isMain: true,
+                            isActive: true,
+                        },
+                        select: { id: true },
+                    });
+                } else {
+                    await tx.memberVehicle.create({
+                        data: {
+                            companyId,
+                            userId: id,
+                            model: motorcycle,
+                            plate,
+                            cylinderCc,
+                            isMain: true,
+                            isActive: true,
+                        },
+                        select: { id: true },
+                    });
+                }
+            }
         });
 
         return jsonOk({ id });
