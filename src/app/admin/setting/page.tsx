@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 
 import { requireAdminForModule } from '@/lib/admin-permissions';
-import AdminSettingsClient from './admin-settings-client';
+import AdminSettingsMembers from './admin-settings-members';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,5 +13,5 @@ export const metadata: Metadata = {
 export default async function AdminSettingsPage() {
     await requireAdminForModule('SETTINGS');
 
-    return <AdminSettingsClient />;
+    return <AdminSettingsMembers />;
 }

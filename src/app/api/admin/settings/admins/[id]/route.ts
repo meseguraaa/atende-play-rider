@@ -1,20 +1,19 @@
 // src/app/api/admin/settings/admins/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+
 import { prisma } from '@/lib/prisma';
 import { requireAdminForModuleApi } from '@/lib/admin-permissions';
 
 type PermissionsPayload = {
     canAccessDashboard: boolean;
-    canAccessReports: boolean;
     canAccessRides: boolean;
     canAccessCategories: boolean;
+    canAccessProducts: boolean;
+    canAccessMembers: boolean;
+    canAccessCommunication: boolean;
     canAccessReviews: boolean;
     canAccessFaq: boolean;
-    canAccessFaqReports: boolean;
-    canAccessCommunication: boolean;
-    canAccessProducts: boolean;
-    canAccessPartners: boolean;
-    canAccessMembers: boolean;
+    canAccessReports: boolean;
     canAccessFinance: boolean;
     canAccessSettings: boolean;
 };
@@ -37,18 +36,16 @@ function normalizePermissions(
 ): PermissionsPayload {
     return {
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
-        canAccessReports: Boolean(partial?.canAccessReports ?? false),
         canAccessRides: Boolean(partial?.canAccessRides ?? true),
         canAccessCategories: Boolean(partial?.canAccessCategories ?? false),
-        canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
-        canAccessFaq: Boolean(partial?.canAccessFaq ?? false),
-        canAccessFaqReports: Boolean(partial?.canAccessFaqReports ?? false),
+        canAccessProducts: Boolean(partial?.canAccessProducts ?? false),
+        canAccessMembers: Boolean(partial?.canAccessMembers ?? true),
         canAccessCommunication: Boolean(
             partial?.canAccessCommunication ?? false
         ),
-        canAccessProducts: Boolean(partial?.canAccessProducts ?? false),
-        canAccessPartners: Boolean(partial?.canAccessPartners ?? false),
-        canAccessMembers: Boolean(partial?.canAccessMembers ?? true),
+        canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
+        canAccessFaq: Boolean(partial?.canAccessFaq ?? false),
+        canAccessReports: Boolean(partial?.canAccessReports ?? false),
         canAccessFinance: Boolean(partial?.canAccessFinance ?? false),
         canAccessSettings: Boolean(partial?.canAccessSettings ?? false),
     };
@@ -61,16 +58,14 @@ function sanitizePatchPermissions(
 
     const keys: (keyof PermissionsPayload)[] = [
         'canAccessDashboard',
-        'canAccessReports',
         'canAccessRides',
         'canAccessCategories',
+        'canAccessProducts',
+        'canAccessMembers',
+        'canAccessCommunication',
         'canAccessReviews',
         'canAccessFaq',
-        'canAccessFaqReports',
-        'canAccessCommunication',
-        'canAccessProducts',
-        'canAccessPartners',
-        'canAccessMembers',
+        'canAccessReports',
         'canAccessFinance',
         'canAccessSettings',
     ];
@@ -99,10 +94,6 @@ function mergePermissions(params: {
             p.canAccessDashboard !== undefined
                 ? Boolean(p.canAccessDashboard)
                 : params.current.canAccessDashboard,
-        canAccessReports:
-            p.canAccessReports !== undefined
-                ? Boolean(p.canAccessReports)
-                : params.current.canAccessReports,
         canAccessRides:
             p.canAccessRides !== undefined
                 ? Boolean(p.canAccessRides)
@@ -111,6 +102,18 @@ function mergePermissions(params: {
             p.canAccessCategories !== undefined
                 ? Boolean(p.canAccessCategories)
                 : params.current.canAccessCategories,
+        canAccessProducts:
+            p.canAccessProducts !== undefined
+                ? Boolean(p.canAccessProducts)
+                : params.current.canAccessProducts,
+        canAccessMembers:
+            p.canAccessMembers !== undefined
+                ? Boolean(p.canAccessMembers)
+                : params.current.canAccessMembers,
+        canAccessCommunication:
+            p.canAccessCommunication !== undefined
+                ? Boolean(p.canAccessCommunication)
+                : params.current.canAccessCommunication,
         canAccessReviews:
             p.canAccessReviews !== undefined
                 ? Boolean(p.canAccessReviews)
@@ -119,26 +122,10 @@ function mergePermissions(params: {
             p.canAccessFaq !== undefined
                 ? Boolean(p.canAccessFaq)
                 : params.current.canAccessFaq,
-        canAccessFaqReports:
-            p.canAccessFaqReports !== undefined
-                ? Boolean(p.canAccessFaqReports)
-                : params.current.canAccessFaqReports,
-        canAccessCommunication:
-            p.canAccessCommunication !== undefined
-                ? Boolean(p.canAccessCommunication)
-                : params.current.canAccessCommunication,
-        canAccessProducts:
-            p.canAccessProducts !== undefined
-                ? Boolean(p.canAccessProducts)
-                : params.current.canAccessProducts,
-        canAccessPartners:
-            p.canAccessPartners !== undefined
-                ? Boolean(p.canAccessPartners)
-                : params.current.canAccessPartners,
-        canAccessMembers:
-            p.canAccessMembers !== undefined
-                ? Boolean(p.canAccessMembers)
-                : params.current.canAccessMembers,
+        canAccessReports:
+            p.canAccessReports !== undefined
+                ? Boolean(p.canAccessReports)
+                : params.current.canAccessReports,
         canAccessFinance:
             p.canAccessFinance !== undefined
                 ? Boolean(p.canAccessFinance)
@@ -160,6 +147,7 @@ async function getParamsId(ctx: RouteCtx): Promise<string> {
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
     const auth = await requireAdminForModuleApi('SETTINGS');
     if (auth instanceof NextResponse) return auth;
+
     const session = auth;
 
     if (!session.isOwner) {
@@ -235,16 +223,14 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
                 select: {
                     id: true,
                     canAccessDashboard: true,
-                    canAccessReports: true,
                     canAccessRides: true,
                     canAccessCategories: true,
+                    canAccessProducts: true,
+                    canAccessMembers: true,
+                    canAccessCommunication: true,
                     canAccessReviews: true,
                     canAccessFaq: true,
-                    canAccessFaqReports: true,
-                    canAccessCommunication: true,
-                    canAccessProducts: true,
-                    canAccessPartners: true,
-                    canAccessMembers: true,
+                    canAccessReports: true,
                     canAccessFinance: true,
                     canAccessSettings: true,
                 },
@@ -253,17 +239,15 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
             const currentPerms: PermissionsPayload = currentAccess
                 ? {
                       canAccessDashboard: !!currentAccess.canAccessDashboard,
-                      canAccessReports: !!currentAccess.canAccessReports,
                       canAccessRides: !!currentAccess.canAccessRides,
                       canAccessCategories: !!currentAccess.canAccessCategories,
-                      canAccessReviews: !!currentAccess.canAccessReviews,
-                      canAccessFaq: !!currentAccess.canAccessFaq,
-                      canAccessFaqReports: !!currentAccess.canAccessFaqReports,
+                      canAccessProducts: !!currentAccess.canAccessProducts,
+                      canAccessMembers: !!currentAccess.canAccessMembers,
                       canAccessCommunication:
                           !!currentAccess.canAccessCommunication,
-                      canAccessProducts: !!currentAccess.canAccessProducts,
-                      canAccessPartners: !!currentAccess.canAccessPartners,
-                      canAccessMembers: !!currentAccess.canAccessMembers,
+                      canAccessReviews: !!currentAccess.canAccessReviews,
+                      canAccessFaq: !!currentAccess.canAccessFaq,
+                      canAccessReports: !!currentAccess.canAccessReports,
                       canAccessFinance: !!currentAccess.canAccessFinance,
                       canAccessSettings: !!currentAccess.canAccessSettings,
                   }
@@ -326,7 +310,8 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
         });
 
         return jsonOk(updated);
-    } catch {
+    } catch (err) {
+        console.error('[PATCH /api/admin/settings/admins/[id]]', err);
         return jsonErr('internal_error', 500);
     }
 }

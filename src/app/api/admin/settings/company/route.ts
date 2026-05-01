@@ -1,17 +1,14 @@
 // src/app/api/admin/settings/company/route.ts
 import { NextResponse } from 'next/server';
+
 import { prisma } from '@/lib/prisma';
 import { requireAdminForModule } from '@/lib/admin-permissions';
 
 type CompanyPayload = {
     name?: string;
-    segment?: 'BARBERSHOP' | 'AESTHETIC';
-    isActive?: boolean;
+    city?: string | null;
+    state?: string | null;
 };
-
-function normalizeSegment(v: unknown): 'BARBERSHOP' | 'AESTHETIC' {
-    return String(v) === 'AESTHETIC' ? 'AESTHETIC' : 'BARBERSHOP';
-}
 
 function jsonOk(data: unknown, status = 200) {
     return NextResponse.json({ ok: true, data }, { status });
@@ -23,16 +20,23 @@ function jsonError(error: string, status = 400) {
 
 /**
  * GET /api/admin/settings/company
- * Retorna a empresa do admin logado (companyId vindo do cookie/sessão do painel)
+ * Retorna a empresa do admin logado.
  */
 export async function GET() {
     try {
         const admin = await requireAdminForModule('SETTINGS');
         const companyId = admin.companyId;
 
+        if (!companyId) return jsonError('missing_company', 403);
+
         const company = await prisma.company.findUnique({
             where: { id: companyId },
-            select: { id: true, name: true, segment: true, isActive: true },
+            select: {
+                id: true,
+                name: true,
+                city: true,
+                state: true,
+            },
         });
 
         if (!company) return jsonError('company_not_found', 404);
@@ -46,10 +50,7 @@ export async function GET() {
 
 /**
  * PUT /api/admin/settings/company
- * Atualiza name/segment/isActive da empresa atual
- * Regras:
- * - precisa ter módulo SETTINGS
- * - somente owner pode editar
+ * Atualiza name/city/state da empresa atual.
  */
 export async function PUT(req: Request) {
     try {
@@ -60,8 +61,10 @@ export async function PUT(req: Request) {
         }
 
         const companyId = admin.companyId;
+        if (!companyId) return jsonError('missing_company', 403);
 
         let body: CompanyPayload = {};
+
         try {
             body = (await req.json()) as CompanyPayload;
         } catch {
@@ -69,9 +72,8 @@ export async function PUT(req: Request) {
         }
 
         const name = String(body.name ?? '').trim();
-        const segment = normalizeSegment(body.segment);
-        const isActive =
-            typeof body.isActive === 'boolean' ? body.isActive : undefined;
+        const city = String(body.city ?? '').trim() || null;
+        const state = String(body.state ?? '').trim() || null;
 
         if (!name) return jsonError('company_name_required', 400);
 
@@ -79,10 +81,15 @@ export async function PUT(req: Request) {
             where: { id: companyId },
             data: {
                 name,
-                segment,
-                ...(typeof isActive === 'boolean' ? { isActive } : {}),
+                city,
+                state,
             },
-            select: { id: true, name: true, segment: true, isActive: true },
+            select: {
+                id: true,
+                name: true,
+                city: true,
+                state: true,
+            },
         });
 
         return jsonOk(updated);

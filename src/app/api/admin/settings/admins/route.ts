@@ -1,21 +1,20 @@
 // src/app/api/admin/settings/admins/route.ts
 import { NextResponse } from 'next/server';
+import crypto from 'crypto';
+
 import { prisma } from '@/lib/prisma';
 import { requireAdminForModuleApi } from '@/lib/admin-permissions';
-import crypto from 'crypto';
 
 type PermissionsPayload = {
     canAccessDashboard: boolean;
-    canAccessReports: boolean;
     canAccessRides: boolean;
     canAccessCategories: boolean;
+    canAccessProducts: boolean;
+    canAccessMembers: boolean;
+    canAccessCommunication: boolean;
     canAccessReviews: boolean;
     canAccessFaq: boolean;
-    canAccessFaqReports: boolean;
-    canAccessCommunication: boolean;
-    canAccessProducts: boolean;
-    canAccessPartners: boolean;
-    canAccessMembers: boolean;
+    canAccessReports: boolean;
     canAccessFinance: boolean;
     canAccessSettings: boolean;
 };
@@ -47,6 +46,7 @@ function isValidEmail(email: string) {
 function hashPasswordScrypt(password: string) {
     const salt = crypto.randomBytes(16);
     const derivedKey = crypto.scryptSync(password, salt, 64);
+
     return `scrypt:${salt.toString('base64')}:${derivedKey.toString('base64')}`;
 }
 
@@ -55,26 +55,41 @@ function normalizePermissions(
 ): PermissionsPayload {
     return {
         canAccessDashboard: Boolean(partial?.canAccessDashboard ?? true),
-        canAccessReports: Boolean(partial?.canAccessReports ?? false),
         canAccessRides: Boolean(partial?.canAccessRides ?? true),
         canAccessCategories: Boolean(partial?.canAccessCategories ?? false),
-        canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
-        canAccessFaq: Boolean(partial?.canAccessFaq ?? false),
-        canAccessFaqReports: Boolean(partial?.canAccessFaqReports ?? false),
+        canAccessProducts: Boolean(partial?.canAccessProducts ?? false),
+        canAccessMembers: Boolean(partial?.canAccessMembers ?? true),
         canAccessCommunication: Boolean(
             partial?.canAccessCommunication ?? false
         ),
-        canAccessProducts: Boolean(partial?.canAccessProducts ?? false),
-        canAccessPartners: Boolean(partial?.canAccessPartners ?? false),
-        canAccessMembers: Boolean(partial?.canAccessMembers ?? true),
+        canAccessReviews: Boolean(partial?.canAccessReviews ?? false),
+        canAccessFaq: Boolean(partial?.canAccessFaq ?? false),
+        canAccessReports: Boolean(partial?.canAccessReports ?? false),
         canAccessFinance: Boolean(partial?.canAccessFinance ?? false),
         canAccessSettings: Boolean(partial?.canAccessSettings ?? false),
+    };
+}
+
+function ownerPermissions(): PermissionsPayload {
+    return {
+        canAccessDashboard: true,
+        canAccessRides: true,
+        canAccessCategories: true,
+        canAccessProducts: true,
+        canAccessMembers: true,
+        canAccessCommunication: true,
+        canAccessReviews: true,
+        canAccessFaq: true,
+        canAccessReports: true,
+        canAccessFinance: true,
+        canAccessSettings: true,
     };
 }
 
 export async function GET() {
     const auth = await requireAdminForModuleApi('SETTINGS');
     if (auth instanceof NextResponse) return auth;
+
     const session = auth;
 
     try {
@@ -85,6 +100,7 @@ export async function GET() {
                 role: { in: ['ADMIN', 'OWNER'] },
             },
             select: {
+                userId: true,
                 user: {
                     select: {
                         id: true,
@@ -96,7 +112,6 @@ export async function GET() {
                         createdAt: true,
                     },
                 },
-                userId: true,
             },
             orderBy: [{ createdAt: 'asc' }],
         });
@@ -112,16 +127,14 @@ export async function GET() {
                   select: {
                       userId: true,
                       canAccessDashboard: true,
-                      canAccessReports: true,
                       canAccessRides: true,
                       canAccessCategories: true,
+                      canAccessProducts: true,
+                      canAccessMembers: true,
+                      canAccessCommunication: true,
                       canAccessReviews: true,
                       canAccessFaq: true,
-                      canAccessFaqReports: true,
-                      canAccessCommunication: true,
-                      canAccessProducts: true,
-                      canAccessPartners: true,
-                      canAccessMembers: true,
+                      canAccessReports: true,
                       canAccessFinance: true,
                       canAccessSettings: true,
                   },
@@ -133,45 +146,28 @@ export async function GET() {
         >((acc, a) => {
             acc[a.userId] = {
                 canAccessDashboard: !!a.canAccessDashboard,
-                canAccessReports: !!a.canAccessReports,
                 canAccessRides: !!a.canAccessRides,
                 canAccessCategories: !!a.canAccessCategories,
+                canAccessProducts: !!a.canAccessProducts,
+                canAccessMembers: !!a.canAccessMembers,
+                canAccessCommunication: !!a.canAccessCommunication,
                 canAccessReviews: !!a.canAccessReviews,
                 canAccessFaq: !!a.canAccessFaq,
-                canAccessFaqReports: !!a.canAccessFaqReports,
-                canAccessCommunication: !!a.canAccessCommunication,
-                canAccessProducts: !!a.canAccessProducts,
-                canAccessPartners: !!a.canAccessPartners,
-                canAccessMembers: !!a.canAccessMembers,
+                canAccessReports: !!a.canAccessReports,
                 canAccessFinance: !!a.canAccessFinance,
                 canAccessSettings: !!a.canAccessSettings,
             };
+
             return acc;
         }, {});
 
         const data = rows
             .map((r) => {
                 const u = r.user;
-                const perms =
+
+                const permissions =
                     accessByUserId[u.id] ??
-                    normalizePermissions(
-                        u.isOwner
-                            ? {
-                                  canAccessDashboard: true,
-                                  canAccessReports: true,
-                                  canAccessRides: true,
-                                  canAccessReviews: true,
-                                  canAccessProducts: true,
-                                  canAccessFaq: true,
-                                  canAccessFaqReports: true,
-                                  canAccessCommunication: true,
-                                  canAccessPartners: false,
-                                  canAccessMembers: true,
-                                  canAccessFinance: true,
-                                  canAccessSettings: true,
-                              }
-                            : undefined
-                    );
+                    (u.isOwner ? ownerPermissions() : normalizePermissions());
 
                 return {
                     id: u.id,
@@ -181,11 +177,12 @@ export async function GET() {
                     createdAt: u.createdAt.toISOString(),
                     isOwner: !!u.isOwner,
                     isActive: !!u.isActive,
-                    permissions: perms,
+                    permissions,
                 };
             })
             .sort((a, b) => {
                 if (a.isOwner !== b.isOwner) return a.isOwner ? -1 : 1;
+
                 return (
                     new Date(b.createdAt).getTime() -
                     new Date(a.createdAt).getTime()
@@ -193,7 +190,8 @@ export async function GET() {
             });
 
         return jsonOk(data);
-    } catch {
+    } catch (err) {
+        console.error('[GET /api/admin/settings/admins]', err);
         return jsonErr('internal_error', 500);
     }
 }
@@ -201,6 +199,7 @@ export async function GET() {
 export async function POST(req: Request) {
     const auth = await requireAdminForModuleApi('SETTINGS');
     if (auth instanceof NextResponse) return auth;
+
     const session = auth;
 
     if (!session.isOwner) {
@@ -303,7 +302,8 @@ export async function POST(req: Request) {
         });
 
         return jsonOk(created, { status: 201 });
-    } catch {
+    } catch (err) {
+        console.error('[POST /api/admin/settings/admins]', err);
         return jsonErr('internal_error', 500);
     }
 }
